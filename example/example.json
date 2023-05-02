@@ -1,0 +1,52 @@
+{
+  "2022-08-30": {
+    "us1": {"super": "fe1", "estimate": 2, "status": "To Do", "super.status": "In Progress", "todo":  10,
+      "name": "", "created": "", "super.name": "", "super.super": "",  "super.super.status": "",  "super.super.name": ""
+    },
+    "us2": {"super": "fe1", "estimate": 4, "status": "To Do", "super.status": "In Progress", "todo":  10},
+    "us3": {"super": "fe2", "super.super": "fe1", "estimate": 3, "status": "Done", "super.status": "Done",
+            "super.super.status": "In Progress", "todo":  10},
+    "us4": {"super": "fe1", "estimate": 1, "status": "In Progress", "super.status": "In Progress", "todo":  10}
+  },
+  "2022-08-31": {
+    "us1": {"super": "fe1", "estimate": 2, "status": "To Do", "super.status": "In Progress", "todo":  10},
+    "us2": {"super": "fe1", "estimate": 4, "status": "In Progress", "super.status": "In Progress", "todo":  10},
+    "us3": {"super": "fe2", "super.super": "fe1", "estimate": 3, "status": "Done", "super.status": "Done",
+            "super.super.status": "In Progress", "todo":  0},
+    "us4": {"super": "fe1", "estimate": 1, "status": "Done", "super.status": "In Progress", "todo":  5},
+    "us5": {"super": "fe1", "estimate": 4, "status": "", "super.status": "In Progress", "todo":  10}
+   },
+  "2022-09-01": {
+    "us1": {"super": "fe1", "estimate": 2, "status": "To Do", "super.status": "In Progress", "todo":  10},
+    "us2": {"super": "fe1", "estimate": 4, "status": "Done", "super.status": "In Progress", "todo":  10},
+    "us3": {"super": "fe2", "super.super": "fe1", "estimate": 3, "status": "Done", "super.status": "Done",
+            "super.super.status": "In Progress", "todo":  0},
+    "us4": {"super": "fe1", "estimate": 1, "status": "Done", "super.status": "In Progress", "todo":  5},
+    "us5": {"super": "fe1", "estimate": 4, "status": "In Progress", "super.status": "In Progress", "todo":  2}
+   },
+  "2022-09-02": {
+    "us1": {"super": "fe1", "estimate": 2, "status": "In Progress", "super.status": "In Progress", "todo":  8},
+    "us2": {"super": "fe1", "estimate": 4, "status": "Done", "super.status": "In Progress", "todo":  7},
+    "us3": {"super": "fe2", "super.super": "fe1", "estimate": 3, "status": "Done", "super.status": "Done",
+            "super.super.status": "In Progress", "todo":  0},
+    "us4": {"super": "fe1", "estimate": 1, "status": "Done", "super.status": "In Progress", "todo":  0},
+    "us5": {"super": "fe1", "estimate": 4, "status": "Done", "super.status": "In Progress", "todo":  0}
+   },
+  "2022-09-03": {
+    "us1": {"name":  "us", "type":  "us", "estimate": 2, "status": "Test", "todo":  1,
+      "super": "fe1", "super.status": "In Progress", "super.name":  "fe1", "super.type":  "feature"},
+    "us2": {"name":  "us", "type":  "us", "estimate": 4, "status": "Done", "todo":  0,
+      "super": "fe1", "super.status": "In Progress", "super.name":  "fe1", "super.type":  "feature"},
+    "us3": {"name":  "us", "type":  "us", "estimate": 3, "status": "Done", "todo":  0,
+      "super": "fe2", "super.status": "Done", "super.name":  "fe2", "super.type":  "feature",
+      "super.super": "fe1", "super.super.status": "In Progress", "super.super.name": "fe1", "super.super.type":  "feature"},
+    "us4": {"name":  "us", "type":  "us", "estimate": 1, "status": "Done", "todo":  0,
+      "super": "fe1", "super.status": "In Progress", "super.name":  "fe1", "super.type":  "feature"},
+    "us5": {"name":  "us", "type":  "us", "estimate": 4, "status": "Done", "todo":  0,
+      "super": "fe1", "super.status": "In Progress", "super.name":  "fe1", "super.type":  "feature"},
+    "us6": {"name":  "us", "type":  "us", "estimate": 4, "status": "Done", "todo":  0,
+      "super": "fe3", "super.status": "In Progress", "super.name":  "fe3", "super.type":  "feature",
+      "super.super":  "epic A", "super.super.status": "In Progress", "super.super.name":  "epic A", "super.super.type":  "Epic",
+      "super.super.super":  "Theme Op", "super.super.super.status": "In Progress", "super.super.super.name":  "Theme Op", "super.super.super.type":  "Theme"}
+   }
+}
