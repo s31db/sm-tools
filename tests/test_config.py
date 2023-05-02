@@ -1,6 +1,6 @@
 from unittest import TestCase
-import hypothesis.strategies as st
-from hypothesis import given, example
+# import hypothesis.strategies as st
+# from hypothesis import given, example
 from config import config
 
 
