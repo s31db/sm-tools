@@ -24,7 +24,7 @@ class TestConfig(TestCase):
     #     assert c.PROJECT_2.path_project == '/PROJECT_2'
 
     def test_config(self):
-        c = config('../test_ressources/test_config.ini')
+        c = config('tests/test_ressources/test_config.ini')
         assert c['PROJECT_1']['path_project'] == '/PROJECT_1'
         assert c['PROJECT_1']['path_tmp'] == 'C:/tmp'
         assert c.PROJECT_1['path_tmp'] == 'C:/tmp'
