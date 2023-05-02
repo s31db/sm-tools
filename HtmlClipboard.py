@@ -15,7 +15,7 @@ original: http://code.activestate.com/recipes/474121/
 
 import re
 import time
-import random
+from secrets import SystemRandom
 import win32clipboard
 
 # ---------------------------------------------------------------------------
@@ -116,7 +116,7 @@ class HtmlClipboard:
         try:
             win32clipboard.OpenClipboard(0)
             cf = win32clipboard.EnumClipboardFormats(0)
-            while (cf != 0):
+            while cf != 0:
                 formats.append(cf)
                 cf = win32clipboard.EnumClipboardFormats(cf)
         finally:
@@ -145,7 +145,6 @@ class HtmlClipboard:
                 win32clipboard.OpenClipboard(0)
                 src = win32clipboard.GetClipboardData(self.get_cf_html())
                 src = src.decode("UTF-8")
-                #print(src)
                 self.DecodeClipboardSource(src)
 
                 cb_opened = True
@@ -158,7 +157,7 @@ class HtmlClipboard:
                     pass
                     # wait on clipboard because something else has it. we're waiting a
                     # random amount of time before we try again so we don't collide again
-                    time.sleep( random.random()/50 )
+                    time.sleep(SystemRandom().random()/50)
                 elif err.winerror == 1418:  # doesn't have board open
                     pass
                 elif err.winerror == 0:  # open failure
@@ -294,16 +293,9 @@ def DumpHtml():
         print("GetSource()=>>>%s<<<END" % cb.GetSource())
 
 
-if __name__ == '__main__':
-
-    def test_simple_get_put_html():
-        data = "<p>Writing to the clipboard is <strong>easy</strong> with this code.</p>"
-        put_html(data)
-        if get_html() == data:
-            print("passed")
-        else:
-            print("failed")
-
-    test_simple_get_put_html()
-    #DumpHtml()
+def test_simple_get_put_html():
+    data = "<p>Writing to the clipboard is <strong>easy</strong> with this code.</p>"
+    put_html(data)
+    assert get_html() == data
+    # DumpHtml()
     

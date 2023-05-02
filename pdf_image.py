@@ -17,11 +17,10 @@ def capture(prefix: str, pages: int):
     # prefix = 'tmpagile/biais_cognitif_'
     # prefix = 'tmpagile/debriefing_kards_'
     for i in range(0, pages * len(location), len(location)):
-        n = '0' + str(n) if n < 10 else str(n)
         for nb, locate in enumerate(location):
             n = i + nb
-            n = '0' + str(n) if n < 10 else str(n)
-            pyautogui.screenshot(prefix + n + '.png', region=locate)
+            num = '0' + str(n) if n < 10 else str(n)
+            pyautogui.screenshot(prefix + num + '.png', region=locate)
         keyboard.press(Key.page_down)
         keyboard.release(Key.page_down)
         sleep(0.3)

@@ -98,7 +98,7 @@ def remaining(project: str):
 
 
 def sprints(project: str, suffix: str = ''):
-    d, data_conf, datas_sm = prepare_data(suffix=suffix)
+    d, data_conf, datas_sm = prepare_data(project=project, suffix=suffix)
     now = (datetime.now() + timedelta(days=-0)).strftime('%Y-%m-%d')
     print('datas/' + now.replace('-', '') + project + '_' + 'infos_sprints' + '.json')
     with open('datas/' + now.replace('-', '') + project + '_' + 'infos_sprints' + '.json', 'r', encoding='utf-8') as fp:
@@ -144,7 +144,7 @@ def prepare_color(nb: int):
 def float_to_int(value: float):
     if value is None:
         return 0
-    elif value is not None and float(value) % 1 == 0:
+    elif float(value) % 1 == 0:
         return int(float(value))
     return value
 

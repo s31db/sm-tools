@@ -141,7 +141,7 @@ class JiraSM:
         #         yield result
         #     start_at += results.maxResults
 
-    def analyse(self, jql_str):
+    def analyse(self):
         # issue = jira.issue('XX-Number')
         # print(issue.fields.project.key)
         # print(issue.fields.issuetype.name)
