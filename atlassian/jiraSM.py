@@ -341,14 +341,13 @@ class JiraSM:
                         change_super(changelog_date, changelog_item, created, dates, epics_date, ticket, us_date,
                                      self._super)
                     elif changelog_item.field not in self._fields_change_ignored:
-                        logging.debug(' '.join('Field not ignored', changelog_item.field, changelog_item.fieldtype,
-                                               getattr(changelog_item, 'from'),
-                                      # changelog_item.fromString, changelog_item.to, changelog_item.toString
-                                               ))
+                        logging.debug('Field not ignored {} {} {} '.format(
+                            changelog_item.field, changelog_item.fieldtype, getattr(changelog_item, 'from')))
+                        # changelog_item.fromString, changelog_item.to, changelog_item.toString
 
         if epics_no_rights:
-            logging.warning(' '.join('Right to see', ' '.join(epics_no_rights.keys()), '?'))
-            logging.warning(' '.join('Exemple ticket from epic:', epics_no_rights))
+            logging.warning('Right to see {} ?'.format(' '.join(epics_no_rights.keys())))
+            logging.warning('Exemple ticket from epic: {}'.format(epics_no_rights))
 
         now = datetime.now().strftime('%Y-%m-%d')
         path_file = self._path_data + now.replace('-', '') + self._project + '_' + suffix + '.json'
