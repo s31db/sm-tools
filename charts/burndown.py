@@ -8,7 +8,7 @@ class Burndown(Chart):
     _values: list[float]
     _dates: list[str]
     _start_is_max: bool = False
-    _figsize: list[int] = (8, 4)
+    _figsize: tuple[int] = (8, 4)
 
     def title(self, title: str):
         self._title = title
@@ -58,12 +58,9 @@ class Burndown(Chart):
 def test_burdown():
     assert Burndown(title4='Exple')._title4 == 'Exple'
     b = Burndown(title='Exple Test', start_is_max=False).dates(
-        # ('26/11', '27/11', '28/11', '29/11')).values([15, 13]).build().show()
         ('26/11', '27/11', '28/11', '29/11')).values([15, 13]).build()
     a = b.img64()[0]
     print(len(a))
     a = b.svg()[0]
     print(len(a))
-    # print(a)
-    # Burndown().title(title='Exple').build().show()
     b.show()

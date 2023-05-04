@@ -9,6 +9,13 @@ from datetime import datetime
 from configparser import ConfigParser
 from operator import attrgetter
 
+SUPER = 'super'
+SUPER_NAME = 'super.name'
+SUPER_STATUS = 'super.status'
+SUPER_SUPER = 'super.super'
+SUPER_SUPER_NAME = 'super.super.name'
+SUPER_SUPER_STATUS = 'super.super.status'
+
 
 def to_hour(second: int, minus: int = None):
     if second and minus:
@@ -23,33 +30,33 @@ def add_super(date: str, ticket_super_super: str, epics_date: str, epics_no_righ
               ticket_super: str, ticket: str, us_date: str, _super: dict):
     if ticket_super_super is not None and ticket_super_super not in epics_date[date]:
         epics_no_rights[ticket_super_super] = ticket.key
-    if 'super' in _super:
+    if SUPER in _super:
         if ticket_super_super is None or ticket_super_super not in epics_date[date]:
             super_super_id = '-2'
-            us_date[date][ticket.key]['super.super.status'] = ''
-            us_date[date][ticket.key]['super.super.name'] = _super['super']['default_name']
+            us_date[date][ticket.key][SUPER_SUPER_STATUS] = ''
+            us_date[date][ticket.key][SUPER_SUPER_NAME] = _super[SUPER]['default_name']
         else:
             super_super_id = ticket_super_super
-            us_date[date][ticket.key]['super.super.status'] = epics_date[date][ticket_super_super]['status']
-            us_date[date][ticket.key]['super.super.name'] = epics_date[date][ticket_super_super]['name']
-        us_date[date][ticket.key]['super.super'] = super_super_id
+            us_date[date][ticket.key][SUPER_SUPER_STATUS] = epics_date[date][ticket_super_super]['status']
+            us_date[date][ticket.key][SUPER_SUPER_NAME] = epics_date[date][ticket_super_super]['name']
+        us_date[date][ticket.key][SUPER_SUPER] = super_super_id
     if ticket_super is None:
-        if 'super' in _super:
-            us_date[date][ticket.key]['super'] = '-1' + '_' + super_super_id
+        if SUPER in _super:
+            us_date[date][ticket.key][SUPER] = '-1' + '_' + super_super_id
         else:
-            us_date[date][ticket.key]['super'] = '-1'
-        us_date[date][ticket.key]['super.name'] = _super['default_name']
-        us_date[date][ticket.key]['super.status'] = ''
+            us_date[date][ticket.key][SUPER] = '-1'
+        us_date[date][ticket.key][SUPER_NAME] = _super['default_name']
+        us_date[date][ticket.key][SUPER_STATUS] = ''
         us_date[date][ticket.key]['super.type'] = ''
     else:
-        # us_date[date][ticket.key]['super'] = ticket_super[-1].split('[id=')[-1].split(',rapidViewId=')[0] + \
+        # us_date[date][ticket.key][SUPER] = ticket_super[-1].split('[id=')[-1].split(',rapidViewId=')[0] + \
         #                                      '_' + super_super_id
-        # us_date[date][ticket.key]['super.name'] = ticket_super[-1].split(',name=')[-1].split(',startDate=')[0]
-        # us_date[date][ticket.key]['super.status'] = ''
-        us_date[date][ticket.key]['super'] = ticket_super
+        # us_date[date][ticket.key][SUPER_NAME] = ticket_super[-1].split(',name=')[-1].split(',startDate=')[0]
+        # us_date[date][ticket.key][SUPER_STATUS] = ''
+        us_date[date][ticket.key][SUPER] = ticket_super
         if ticket_super in epics_date[date]:
-            us_date[date][ticket.key]['super.status'] = epics_date[date][ticket_super]['status']
-            us_date[date][ticket.key]['super.name'] = epics_date[date][ticket_super]['name']
+            us_date[date][ticket.key][SUPER_STATUS] = epics_date[date][ticket_super]['status']
+            us_date[date][ticket.key][SUPER_NAME] = epics_date[date][ticket_super]['name']
             us_date[date][ticket.key]['super.type'] = epics_date[date][ticket_super]['type']
 
 
@@ -62,40 +69,40 @@ def change_super(changelog_date, changelog_item, created, dates, epics_date, tic
                 changelog_item_from = changelog_item_from.split(', ')[-1]
                 # XXX not perfect for name
                 name = name.split(', ')[-1]
-        field = 'super'
+        field = SUPER
         for date in dates:
-            if created <= date < changelog_date <= us_date[date][ticket.key]['update']['super']:
-                if 'super.super' in us_date[date][ticket.key]:
-                    super_super_id = us_date[date][ticket.key]['super.super']
+            if created <= date < changelog_date <= us_date[date][ticket.key]['update'][SUPER]:
+                if SUPER_SUPER in us_date[date][ticket.key]:
+                    super_super_id = us_date[date][ticket.key][SUPER_SUPER]
                 else:
                     super_super_id = ''
                 if changelog_item_from is None:
-                    us_date[date][ticket.key]['super'] = '-1' + '_' + super_super_id
-                    us_date[date][ticket.key]['super.name'] = 'Backlog'
-                    us_date[date][ticket.key]['super.status'] = ''
+                    us_date[date][ticket.key][SUPER] = '-1' + '_' + super_super_id
+                    us_date[date][ticket.key][SUPER_NAME] = 'Backlog'
+                    us_date[date][ticket.key][SUPER_STATUS] = ''
                 else:
-                    us_date[date][ticket.key]['super'] = changelog_item_from + '_' + super_super_id
-                    us_date[date][ticket.key]['super.name'] = name
+                    us_date[date][ticket.key][SUPER] = changelog_item_from + '_' + super_super_id
+                    us_date[date][ticket.key][SUPER_NAME] = name
                     # TODO improve name and status with list sprints by date.
-                    us_date[date][ticket.key]['super.status'] = ''
+                    us_date[date][ticket.key][SUPER_STATUS] = ''
                 us_date[date][ticket.key]['update'][field] = changelog_date
-    elif changelog_item.field == _super['super']['field_changelog']:
+    elif changelog_item.field == _super[SUPER]['field_changelog']:
         super_super_id = getattr(changelog_item, 'from')
-        field = 'super.super'
+        field = SUPER_SUPER
         for date in dates:
-            if created <= date < changelog_date <= us_date[date][ticket.key]['update']['super.super']:
+            if created <= date < changelog_date <= us_date[date][ticket.key]['update'][SUPER_SUPER]:
                 if super_super_id is None or super_super_id not in epics_date[date]:
-                    us_date[date][ticket.key]['super.super'] = '-2'
-                    us_date[date][ticket.key]['super'] = us_date[date][ticket.key]['super'].split(
+                    us_date[date][ticket.key][SUPER_SUPER] = '-2'
+                    us_date[date][ticket.key][SUPER] = us_date[date][ticket.key][SUPER].split(
                         '_')[0] + '_-2'
-                    us_date[date][ticket.key]['super.super.status'] = ''
-                    us_date[date][ticket.key]['super.super.name'] = 'No Epic'
+                    us_date[date][ticket.key][SUPER_SUPER_STATUS] = ''
+                    us_date[date][ticket.key][SUPER_SUPER_STATUS] = 'No Epic'
                 else:
-                    us_date[date][ticket.key]['super.super'] = super_super_id
-                    us_date[date][ticket.key]['super'] = us_date[date][ticket.key]['super'].split(
+                    us_date[date][ticket.key][SUPER_SUPER] = super_super_id
+                    us_date[date][ticket.key][SUPER] = us_date[date][ticket.key][SUPER].split(
                         '_')[0] + '_' + super_super_id
-                    us_date[date][ticket.key]['super.super.status'] = epics_date[date][super_super_id]['status']
-                    us_date[date][ticket.key]['super.super.name'] = epics_date[date][super_super_id]['name']
+                    us_date[date][ticket.key][SUPER_SUPER_STATUS] = epics_date[date][super_super_id]['status']
+                    us_date[date][ticket.key][SUPER_SUPER_STATUS] = epics_date[date][super_super_id]['name']
                 us_date[date][ticket.key]['update'][field] = changelog_date
 
 
@@ -262,8 +269,8 @@ class JiraSM:
             if 'field' in value:
                 epics_fields.append(value['field'].split('.')[0])
         tickets_changelogs = {}
-        if 'super' in self._super:
-            tickets_fields = [self._super['field'], self._super['super']['field']]
+        if SUPER in self._super:
+            tickets_fields = [self._super['field'], self._super[SUPER]['field']]
         else:
             tickets_fields = [self._super['field']]
         for key, value in self._fields.items():
@@ -302,18 +309,18 @@ class JiraSM:
 
             created = ticket.fields.created[:10]
             ticket_super = attrgetter(self._super['field'])(ticket.fields)
-            if 'super' in self._super:
-                ticket_super_super = attrgetter(self._super['super']['field'])(ticket.fields)
+            if SUPER in self._super:
+                ticket_super_super = attrgetter(self._super[SUPER]['field'])(ticket.fields)
             else:
                 ticket_super_super = None
             for date in dates:
                 if created <= date <= now:
-                    us_date[date][ticket.key] = {'update': {'super': now, 'super.super': now}}
+                    us_date[date][ticket.key] = {'update': {SUPER: now, SUPER_SUPER: now}}
                     for us_field, us_field_conf in self._fields.items():
                         try:
                             us_date[date][ticket.key][us_field] = attrgetter(us_field_conf['field'])(ticket.fields)
                         except AttributeError:
-                            pass
+                            logging.info('AttributeError :' + us_field_conf['field'])
                         us_date[date][ticket.key]['update'][us_field] = now
                     add_super(date, ticket_super_super, epics_date, epics_no_rights,
                               ticket_super, ticket, us_date, self._super)
@@ -330,18 +337,18 @@ class JiraSM:
                     elif changelog_item.field in (self._super['field_changelog'],):
                         change_super(changelog_date, changelog_item, created, dates, epics_date, ticket, us_date,
                                      self._super)
-                    elif 'super' in self._super and changelog_item.field in (self._super['super']['field_changelog'],):
+                    elif SUPER in self._super and changelog_item.field in (self._super[SUPER]['field_changelog'],):
                         change_super(changelog_date, changelog_item, created, dates, epics_date, ticket, us_date,
                                      self._super)
                     elif changelog_item.field not in self._fields_change_ignored:
-                        logging.debug('Field not ignored', changelog_item.field, changelog_item.fieldtype,
-                                      getattr(changelog_item, 'from'),
+                        logging.debug(' '.join('Field not ignored', changelog_item.field, changelog_item.fieldtype,
+                                               getattr(changelog_item, 'from'),
                                       # changelog_item.fromString, changelog_item.to, changelog_item.toString
-                        )
+                                               ))
 
         if epics_no_rights:
-            logging.warning('Right to see', ' '.join(epics_no_rights.keys()), '?')
-            logging.warning('Exemple ticket from epic:', epics_no_rights)
+            logging.warning(' '.join('Right to see', ' '.join(epics_no_rights.keys()), '?'))
+            logging.warning(' '.join('Exemple ticket from epic:', epics_no_rights))
 
         now = datetime.now().strftime('%Y-%m-%d')
         path_file = self._path_data + now.replace('-', '') + self._project + '_' + suffix + '.json'

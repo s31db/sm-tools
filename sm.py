@@ -77,7 +77,6 @@ def extract_jira(project: str, start_date: str, filtre: str = '', suffix: str = 
     data_conf = jiraconf()
     d = dates(start_date, 128)
     JiraSM(project=project, **data_conf['projects'][project]).conn().epic_ticket(list(d), filtre=filtre, suffix=suffix)
-    pass
 
 
 def jiraconf():

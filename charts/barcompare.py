@@ -8,7 +8,7 @@ class Barcompare(Chart):
     _nodes: dict
     _width_bar: float = 0.3  # the width of the bars
     _ylabel: str = 'Score'
-    _rotation: float = None
+    _rotation: float | None = None
 
     def nodes(self, nodes: dict):
         self._nodes = nodes

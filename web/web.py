@@ -55,7 +55,7 @@ class MyServer(BaseHTTPRequestHandler):
         self.w('<input id="reset" type="reset"/><input id="submit" type="submit"/>')
         self.w('</form><br/>')
 
-    def parse_POST(self):
+    def parse_post(self):
         content_len = int(self.headers.get('Content-Length'), 0)
         post_body = self.rfile.read(content_len)
         req = parse_qs(post_body, keep_blank_values=1, encoding='utf-8')
@@ -63,7 +63,7 @@ class MyServer(BaseHTTPRequestHandler):
 
     def do_POST(self):
         print(self.path)
-        req = self.parse_POST()
+        req = self.parse_post()
         print(req)
         self.send_response(200)
         self.send_header('Content-type', 'text/html')
@@ -111,7 +111,7 @@ class MyServer(BaseHTTPRequestHandler):
 
 if __name__ == '__main__':
     webServer = HTTPServer((hostname, serverPort), MyServer)
-    print('Explore', 'http://' + hostname + ':' + str(serverPort))
+    print('Explore htt', 'p://', hostname, ':', serverPort, sep='')
     try:
         webServer.serve_forever()
     except KeyboardInterrupt:

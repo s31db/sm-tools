@@ -1,32 +1,13 @@
-Pillow>=9.5.0
 pyperclip>=1.8.2
 PyAutoGUI>=0.9.53
-six>=1.16.0
 matplotlib>=3.7.1
 numpy>=1.24.2
 pywin32>=306
 squarify>=0.4.3
-pyodbc>=4.0.39
 plotly>=5.14.1
-opencv-python>=4.7.0.72
-ntlm_auth>=1.5.0
 pynput>=1.7.6
 pandas>=2.0.0
-# hypothesis>=6.56.4
-# https://pytest.org/en/7.2.x/
 pytest>=7.3.1
-# https://black.readthedocs.io/en/stable/index.html
-# black>=22.10.0
-# black[d]>=22.10.0
 jours-feries-france>=0.7.0
-PySimpleGUI>=4.60.4
-termcolor>=2.1.0
-termcolor2>=0.0.3
-jupyter>=1.0.0
-nbformat>=5.7.3
 jira>=3.5.0
-kaleido>=0.2.1
-py-trello>=0.19.0
-PyYAML>=6.0
-html2text>=2020.1.16
 seaborn>=0.12.2

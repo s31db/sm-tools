@@ -42,25 +42,9 @@ class Cumulative(Chart):
         for val in self._colors.keys():
             vals[val] = []
         asofs = []
-        for d, datas in self._datas.items():
-            if d in self._asofs_all:
-                asofs.append(d)
-                if self._details:
-                    statu = [data['status'] for data in datas.values()]
-                else:
-                    statu = [data['status'] if data['status'] not in self._group_status else
-                             self._group_status[data['status']]
-                             for data in datas.values()]
-                for status, nb in vals.items():
-                    nb.append(statu.count(status))
+        self.count_status(asofs, vals)
 
-        vals2 = {}
-        colors = []
-        for key, value in vals.items():
-            if sum(value) > 0:
-                vals2[key] = value
-                colors.append(self._colors[key])
-        vals = vals2
+        colors, vals = self.prepare_colors(vals)
         print(vals)
         if self._restart_done:
             done_total_first = 0
@@ -101,9 +85,27 @@ class Cumulative(Chart):
         plt.box(False)
         return self
 
-    def show(self):
-        plt.show()
-        return self
+    def prepare_colors(self, vals):
+        vals2 = {}
+        colors = []
+        for key, value in vals.items():
+            if sum(value) > 0:
+                vals2[key] = value
+                colors.append(self._colors[key])
+        return colors, vals2
+
+    def count_status(self, asofs, vals):
+        for d, datas in self._datas.items():
+            if d in self._asofs_all:
+                asofs.append(d)
+                if self._details:
+                    statu = [data['status'] for data in datas.values()]
+                else:
+                    statu = [data['status'] if data['status'] not in self._group_status else
+                             self._group_status[data['status']]
+                             for data in datas.values()]
+                for status, nb in vals.items():
+                    nb.append(statu.count(status))
 
 
 def test_show():

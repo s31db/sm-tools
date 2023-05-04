@@ -15,7 +15,6 @@ original: http://code.activestate.com/recipes/474121/
 
 import re
 import time
-from secrets import SystemRandom
 import win32clipboard
 
 # ---------------------------------------------------------------------------
@@ -27,7 +26,7 @@ def has_html():
     Return True if there is a Html fragment in the clipboard..
     """
     cb = HtmlClipboard()
-    return cb.HasHtmlFormat()
+    return cb.has_html_format()
 
 
 def get_html():
@@ -35,8 +34,8 @@ def get_html():
     Return the Html fragment from the clipboard or None if there is no Html in the clipboard.
     """
     cb = HtmlClipboard()
-    if cb.HasHtmlFormat():
-        return cb.GetFragment()
+    if cb.has_html_format():
+        return cb.get_fragment()
     else:
         return None
 
@@ -47,7 +46,7 @@ def put_html(fragment, source=None):
     Convenience function to do the most common operation
     """
     cb = HtmlClipboard()
-    cb.PutFragment(fragment, source=source)
+    cb.put_fragment(fragment, source=source)
 
 
 # ---------------------------------------------------------------------------
@@ -93,10 +92,10 @@ class HtmlClipboard:
     def __init__(self):
         self.html = None
         self.fragment = None
+        self.prefix = None
         self.selection = None
         self.source = None
         self.htmlClipboardVersion = None
-
 
     def get_cf_html(self):
         """
@@ -107,8 +106,8 @@ class HtmlClipboard:
 
         return self.CF_HTML
 
-
-    def GetAvailableFormats(self):
+    @staticmethod
+    def available_formats():
         """
         Return a possibly empty list of formats available on the clipboard
         """
@@ -124,15 +123,13 @@ class HtmlClipboard:
 
         return formats
 
-
-    def HasHtmlFormat(self):
+    def has_html_format(self) -> bool:
         """
         Return a boolean indicating if the clipboard has data in HTML format
         """
-        return (self.get_cf_html() in self.GetAvailableFormats())
+        return self.get_cf_html() in self.available_formats()
 
-
-    def GetFromClipboard(self):
+    def from_clipboard(self):
         """
         Read and decode the HTML from the clipboard
         """
@@ -145,7 +142,7 @@ class HtmlClipboard:
                 win32clipboard.OpenClipboard(0)
                 src = win32clipboard.GetClipboardData(self.get_cf_html())
                 src = src.decode("UTF-8")
-                self.DecodeClipboardSource(src)
+                self.decode_clipboard_source(src)
 
                 cb_opened = True
 
@@ -154,10 +151,9 @@ class HtmlClipboard:
                 # If access is denied, that means that the clipboard is in use.
                 # Keep trying until it's available.
                 if err.winerror == 5:  # Access Denied
-                    pass
                     # wait on clipboard because something else has it. we're waiting a
                     # random amount of time before we try again so we don't collide again
-                    time.sleep(SystemRandom().random()/50)
+                    time.sleep(0.01)
                 elif err.winerror == 1418:  # doesn't have board open
                     pass
                 elif err.winerror == 0:  # open failure
@@ -165,8 +161,7 @@ class HtmlClipboard:
                 else:
                     print('ERROR in Clipboard section of readcomments: %s' % err)
 
-
-    def DecodeClipboardSource(self, src):
+    def decode_clipboard_source(self, src):
         """
         Decode the given string to figure out the details of the HTML that's on the string
         """
@@ -190,44 +185,39 @@ class HtmlClipboard:
                 self.source = matches.group(6)
                 self.selection = self.fragment
 
-
     def get_html(self, refresh=False):
         """
         Return the entire Html document
         """
         if not self.html or refresh:
-            self.GetFromClipboard()
+            self.from_clipboard()
         return self.html
 
-
-    def GetFragment(self, refresh=False):
+    def get_fragment(self, refresh=False):
         """
         Return the Html fragment. A fragment is well-formated HTML enclosing the selected text
         """
         if not self.fragment or refresh:
-            self.GetFromClipboard()
+            self.from_clipboard()
         return self.fragment
 
-
-    def GetSelection(self, refresh=False):
+    def get_selection(self, refresh=False):
         """
         Return the part of the HTML that was selected. It might not be well-formed.
         """
         if not self.selection or refresh:
-            self.GetFromClipboard()
+            self.from_clipboard()
         return self.selection
 
-
-    def GetSource(self, refresh=False):
+    def get_source(self, refresh=False):
         """
         Return the URL of the source of this HTML
         """
         if not self.selection or refresh:
-            self.GetFromClipboard()
+            self.from_clipboard()
         return self.source
 
-
-    def PutFragment(self, fragment, selection=None, html=None, source=None):
+    def put_fragment(self, fragment, selection=None, html=None, source=None):
         """
         Put the given well-formed fragment of Html into the clipboard.
         selection, if given, must be a literal string within fragment.
@@ -241,29 +231,28 @@ class HtmlClipboard:
         if source is None:
             source = "file://HtmlClipboard.py"
 
-        fragmentStart = html.index(fragment)
-        fragmentEnd = fragmentStart + len(fragment)
-        selectionStart = html.index(selection)
-        selectionEnd = selectionStart + len(selection)
-        self.PutToClipboard(html, fragmentStart, fragmentEnd, selectionStart, selectionEnd, source)
+        fragment_start = html.index(fragment)
+        fragment_end = fragment_start + len(fragment)
+        selection_start = html.index(selection)
+        selection_end = selection_start + len(selection)
+        self.put_to_clipboard(html, fragment_start, fragment_end, selection_start, selection_end, source)
 
-
-    def PutToClipboard(self, html, fragmentStart, fragmentEnd, selectionStart, selectionEnd, source="None"):
+    def put_to_clipboard(self, html, fragment_start, fragment_end, selection_start, selection_end, source="None"):
         """
         Replace the Clipboard contents with the given html information.
         """
         try:
             win32clipboard.OpenClipboard(0)
             win32clipboard.EmptyClipboard()
-            src = self.EncodeClipboardSource(html, fragmentStart, fragmentEnd, selectionStart, selectionEnd, source)
+            src = self.encode_clipboard_source(html, fragment_start, fragment_end, selection_start, selection_end,
+                                               source)
             src = src.encode("UTF-8")
             # print(src)
             win32clipboard.SetClipboardData(self.get_cf_html(), src)
         finally:
             win32clipboard.CloseClipboard()
 
-
-    def EncodeClipboardSource(self, html, fragmentStart, fragmentEnd, selectionStart, selectionEnd, source):
+    def encode_clipboard_source(self, html, fragment_start, fragment_end, selection_start, selection_end, source):
         """
         Join all our bits of information into a string formatted as per the HTML format specs.
         """
@@ -271,31 +260,31 @@ class HtmlClipboard:
         dummyPrefix = self.MARKER_BLOCK_OUTPUT % (0, 0, 0, 0, 0, 0, source)
         lenPrefix = len(dummyPrefix)
 
-        prefix = self.MARKER_BLOCK_OUTPUT % (lenPrefix, len(html)+lenPrefix,
-                        fragmentStart+lenPrefix, fragmentEnd+lenPrefix,
-                        selectionStart+lenPrefix, selectionEnd+lenPrefix,
-                        source)
+        prefix = self.MARKER_BLOCK_OUTPUT % (lenPrefix, len(html) + lenPrefix,
+                                             fragment_start + lenPrefix, fragment_end + lenPrefix,
+                                             selection_start + lenPrefix, selection_end + lenPrefix,
+                                             source)
         return prefix + html
 
 
-def DumpHtml():
+def dump_html():
 
     cb = HtmlClipboard()
-    print("GetAvailableFormats()=%s" % str(cb.GetAvailableFormats()))
-    print("HasHtmlFormat()=%s" % str(cb.HasHtmlFormat()))
-    if cb.HasHtmlFormat():
-        cb.GetFromClipboard()
+    print("available_formats()=%s" % str(cb.available_formats()))
+    print("has_html_format()=%s" % str(cb.has_html_format()))
+    if cb.has_html_format():
+        cb.from_clipboard()
         print("prefix=>>>%s<<<END" % cb.prefix)
         print("htmlClipboardVersion=>>>%s<<<END" % cb.htmlClipboardVersion)
-        print("GetSelection()=>>>%s<<<END" % cb.GetSelection())
-        print("GetFragment()=>>>%s<<<END" % cb.GetFragment())
+        print("get_selection()=>>>%s<<<END" % cb.get_selection())
+        print("get_fragment()=>>>%s<<<END" % cb.get_fragment())
         print("GetHtml()=>>>%s<<<END" % cb.get_html())
-        print("GetSource()=>>>%s<<<END" % cb.GetSource())
+        print("get_source()=>>>%s<<<END" % cb.get_source())
 
 
 def test_simple_get_put_html():
     data = "<p>Writing to the clipboard is <strong>easy</strong> with this code.</p>"
     put_html(data)
     assert get_html() == data
-    # DumpHtml()
+    # dump_html()
     

@@ -11,7 +11,7 @@ class Pareto(Chart):
     _y_label: str = 'nb items'
     _pareto_items: dict
     _percent: float = 80
-    _figsize: list[int] = (8, 6)
+    _figsize: tuple[int] = (8, 6)
     _important_values: dict
     _margin: float = 0.25
 
