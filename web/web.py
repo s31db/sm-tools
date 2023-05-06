@@ -96,7 +96,7 @@ class MyServer(BaseHTTPRequestHandler):
                                          chart_html=True)
                             self.w(j + '<br/>', append=True)
                         elif action == b'Treemap':
-                            j = jira_treemap(title=project, project=project, date_file=sfx, html=True, chart_html=True)
+                            j = jira_treemap(project=project, date_file=sfx, html=True, chart_html=True)
                             self.w(j.split('<body>')[-1].split('</body>')[0] + '<br/>')
                         elif action == b'TreemapEpic':
                             for n, t, a in analysis_tree(project):

@@ -38,7 +38,7 @@ def jira_cum(project: str, date_file: str = None,
 def jira_treemap(project: str, suffix: str = '', date_file: str = None, html: bool = False, chart_html: bool = False,
                  show: bool = False):
     data_conf, n, now = get_tree(project, suffix, date_file)
-    t = Treemap(project + ' ' + now, nodes=n, **data_conf['projects'][project]).build()
+    t = Treemap(project + ' ' + now, global_parent=project, nodes=n, **data_conf['projects'][project]).build()
     if chart_html:
         t.chart_html()
     if html:

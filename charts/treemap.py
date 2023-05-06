@@ -8,6 +8,7 @@ import numpy
 class Treemap:
 
     _title: str = 'Treemap'
+    _global_parent: str = 'Treemap'
     _nodes: dict
     fig: Figure
     _url_server: str
@@ -29,8 +30,7 @@ class Treemap:
         return self
 
     def build(self):
-        global_parent = self._title
-        names = [global_parent]
+        names = [self._global_parent]
         custom_data = ['']
         custom_data_statues = ['']
         custom_data_types = ['']
@@ -52,7 +52,7 @@ class Treemap:
             if 'father' in value:
                 parents.append(value['father'])
             else:
-                parents.append(global_parent)
+                parents.append(self._global_parent)
             if 'children' in value:
                 values.append(0)
             else:
