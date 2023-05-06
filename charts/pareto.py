@@ -53,7 +53,7 @@ class Pareto(Chart):
                 self._important_values[key] = {'val': value, 'per': value * 100 / total, 'per_sum': per_sum}
             per_sum_previous = per_sum
 
-        fig, ax = plt.subplots(figsize=self._figsize)
+        ax = plt.subplots(figsize=self._figsize)[1]
         ax.set_title(self._title)
 
         # https://towardsdatascience.com/creating-a-dual-axis-combo-chart-in-python-52624b187834
@@ -90,7 +90,7 @@ class Pareto(Chart):
     def build_percent(self, percent, color, lw: float = 1, linestyle: str = '--'):
         nb = -1
         nearly_previous = nearly = 0
-        for key, value in self._pareto_items.items():
+        for value in self._pareto_items.values():
             # Nearly to 80 %
             # if (per_sum_previous < 75 < per_sum) or per_sum <= 80:
             nearly = value['per_sum']
