@@ -37,7 +37,6 @@ def build_tree(datas: dict) -> Tuple[dict, dict]:
                 for tim in ['aggregatetimeoriginalestimate', 'aggregatetimeestimate', 'aggregatetimespent']:
                     ti[tim] = 0 if ids[child_key][tim] is None else ids[child_key][tim]
                 if f in ids:
-                    # ids[f]['status'] = s
                     ids[f]['children'][child_key] = ids[child_key]
                     ids[f]['estimate'] += estimate
                     for t in ['aggregatetimeoriginalestimate', 'aggregatetimeestimate', 'aggregatetimespent']:

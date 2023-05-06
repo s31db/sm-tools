@@ -33,32 +33,34 @@ class MyServer(BaseHTTPRequestHandler):
             self.tampon += arg
         self.wfile.write(bytes(arg, 'utf-8'))
 
+    def wl(self, arg: str, append: bool = False):
+        self.w(arg + '<br/>', append=append)
+
     def index(self):
         actions = {'Extract': None, 'Burndown': None, 'Cumulative': None, 'Treemap': None, 'TreemapEpic': None}
-        self.w('<form method="post" action="/action"><br/>')
+        self.wl('<form method="post" action="/action">')
         self.w('<fieldset><legend>Project</legend>')
         dataconf = jiraconf()
         for key, conf in dataconf['projects'].items():
-            self.w('<input name="projects" type="checkbox" value="'+key+'">'+key+'</input><br/>')
+            self.wl('<input name="projects" type="checkbox" value="'+key+'">'+key+'</input>')
             self.w("<label for='" + key + "_filter'>Filtre : </label>")
-            self.w("<input name='" + key + "_filter' id='" + key + "_filter' type='text' value='" +
-                   escape(conf['filter']) + "' size='200'/><br/>")
+            self.wl("<input name='" + key + "_filter' id='" + key + "_filter' type='text' value='" +
+                    escape(conf['filter']) + "' size='200'/>")
             self.w("<label for='" + key + "_step'>Step : </label>")
-            self.w("<input name='" + key + "_step' id='" + key + "_step' type='text' value='" +
-                   '0' + "' size='200'/><br/>")
+            self.wl("<input name='" + key + "_step' id='" + key + "_step' type='text' value='" + '0' + "' size='200'/>")
             self.w('<fieldset><legend>Action</legend>')
             for key_action in actions.keys():
-                self.w('<input name="'+key+'_actions" type="checkbox" value="'+key_action+'">' + key_action +
-                       '</input><br/>')
-            self.w('</fieldset><br/>')
-        self.w('</fieldset><br/>')
+                self.wl('<input name="'+key+'_actions" type="checkbox" value="'+key_action+'">' + key_action +
+                        '</input>')
+            self.wl('</fieldset>')
+        self.wl('</fieldset>')
         self.w('<input id="reset" type="reset"/><input id="submit" type="submit"/>')
-        self.w('</form><br/>')
+        self.wl('</form>')
 
     def parse_post(self):
         content_len = int(self.headers.get('Content-Length'), 0)
         post_body = self.rfile.read(content_len)
-        req = parse_qs(post_body, keep_blank_values=1, encoding='utf-8')
+        req = parse_qs(post_body, keep_blank_values=True, encoding='utf-8')
         return req
 
     def do_POST(self):
@@ -87,22 +89,22 @@ class MyServer(BaseHTTPRequestHandler):
                 if actions in req:
                     for action in req[actions]:
                         if action == b'Extract':
-                            self.w(filtre + '<br/>')
+                            self.wl(filtre)
                             extract_jira(project=project, start_date=dataconf[project]['start'], filtre=filtre)
                         elif action == b'Cumulative':
                             j = jira_cum(project=project, details=True, date_file=sfx,
                                          weeks=dataconf[project]['weeks'], start_date=dataconf[project]['start'],
                                          step=step,
                                          chart_html=True)
-                            self.w(j + '<br/>', append=True)
+                            self.wl(j, append=True)
                         elif action == b'Treemap':
                             j = jira_treemap(project=project, date_file=sfx, html=True, chart_html=True)
-                            self.w(j.split('<body>')[-1].split('</body>')[0] + '<br/>')
+                            self.wl(j.split('<body>')[-1].split('</body>')[0] )
                         elif action == b'TreemapEpic':
                             for n, t, a in analysis_tree(project):
                                 self.w('<details><summary>' + n + str(a) + '</summary>')
-                                self.w('' + t.split('<body>')[-1].split('</body>')[0] + '</details><br/>')
-                self.w('</details><br/>')
+                                self.wl('' + t.split('<body>')[-1].split('</body>')[0] + '</details>')
+                self.wl('</details>')
         if self.path == '/':
             self.index()
         self.w('</body></html>')

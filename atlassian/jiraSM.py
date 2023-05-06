@@ -9,6 +9,7 @@ from datetime import datetime
 from configparser import ConfigParser
 from operator import attrgetter
 
+Y_M_D = '%Y-%m-%d'
 SUPER = 'super'
 SUPER_NAME = 'super.name'
 SUPER_STATUS = 'super.status'
@@ -154,8 +155,8 @@ class JiraSM:
         # print(issue.fields.issuetype.name)
         # print(issue.fields.reporter.displayName)
 
-        # jql_str = 'project = ' + self._project + ' AND sprint = "XXX" AND issuetype =  Sub-task ORDER BY Rank ASC'
-        jql_str = 'project = ' + self._project + ' AND sprint = "XXX" AND issuetype =  Story ORDER BY Rank ASC'
+        # jql_str = self._filter_project() + 'AND sprint = "XXX" AND issuetype =  Sub-task ORDER BY Rank ASC'
+        jql_str = self._filter_project() + 'AND sprint = "XXX" AND issuetype =  Story ORDER BY Rank ASC'
         sousestimer = 0
         sousestimerl = []
         parfait = 0
@@ -164,7 +165,7 @@ class JiraSM:
         for task in self.search(jql_str=jql_str, maxResults=10000):
             if task.fields.aggregatetimespent and task.fields.aggregatetimeoriginalestimate \
                     and task.fields.aggregatetimespent > task.fields.aggregatetimeoriginalestimate:
-                print(task.self, self._url_server + "/browse/"+task.key)
+                print(task.self, self.link_browse(task.key))
                 print(task.fields.summary, task.fields.status, task.fields.assignee,
                       to_hour(task.fields.aggregatetimespent),
                       '/', to_hour(task.fields.aggregatetimeoriginalestimate))
@@ -177,7 +178,7 @@ class JiraSM:
                     and task.fields.aggregatetimespent < task.fields.aggregatetimeoriginalestimate:
                 surestimer += 1
             else:
-                # print(task.self, url_server + "/browse/" + task.key)
+                # print(task.self, self.link_browse(task.key))
                 # print(task.fields.summary, task.fields.status, task.fields.assignee,
                 #       to_hour(task.fields.aggregatetimespent),
                 #       '/', to_hour(task.fields.aggregatetimeoriginalestimate))
@@ -187,22 +188,25 @@ class JiraSM:
               'Mean', statistics.mean(map(Decimal, sousestimerl)))
         print('sousestimer', sousestimer, 'parfait', parfait, 'surestimer', surestimer, 'autre', autre)
 
+    def _filter_project(self):
+        return 'project = ' + self._project + ' '
+
     def assign(self):
         tasks = {}
         for task in self.search(
-                           'project = ' + self._project + '  '
+                           self._filter_project() +
                            'AND status in ("To Do", "In Progress") '
                            # 'AND issuetype in (Bug, Sub-task) '
                            # 'AND assignee = currentUser() ' +
                            'AND resolution = Unresolved ORDER BY updated DESC',
                            fields='summary, status, assignee, aggregatetimeoriginalestimate, aggregatetimespent'):
             tasks[task.key] = {'summary': task.fields.summary,
-                               'link': self._url_server + "/browse/" + task.key,
+                               'link': self.link_browse(task.key),
                                'status': task.fields.status.name,
                                'assignee': str(task.fields.assignee),
                                'restant': to_hour(task.fields.aggregatetimeoriginalestimate,
                                                   task.fields.aggregatetimespent)}
-            print(task.self, self._url_server + "/browse/" + task.key)
+            print(task.self, self.link_browse(task.key))
             print(task.fields.summary, task.fields.status, task.fields.assignee,
                   to_hour(task.fields.aggregatetimespent), '/', to_hour(task.fields.aggregatetimeoriginalestimate),
                   to_hour(task.fields.aggregatetimeoriginalestimate, task.fields.aggregatetimespent))
@@ -211,7 +215,7 @@ class JiraSM:
         pp.pprint(tasks)
         # print(tasks)
 
-    def remaining(self):
+    def remaining(self, cleaner: bool = False):
         fields = 'summary, assignee, aggregatetimeestimate, status'
         filters = {'remaining': 'and remainingEstimate > 0',
                    'doneOrCancel': 'and (status = DONE or status = CANCELED)',
@@ -223,40 +227,44 @@ class JiraSM:
         now = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
         path_file = self._path_data + now.replace('-', '') + self._project + '_' + 'remaining' + '.txt'
         with open(path_file, 'w', encoding='utf-8') as f:
-            for task in self.search('project = ' + self._project + ' ' + filters['subtaskdone'] +
+            for task in self.search(self._filter_project() + filters['subtaskdone'] +
                                     '' + filters['remaining'] + '  ORDER BY assignee ASC, remainingEstimate DESC',
                                     maxResults=False, fields=fields, trc=True):
                 # print(task.key)
                 if task.fields.aggregatetimeestimate is not None:
                     print(task, task.fields.assignee if task.fields.assignee else 'Non assignée', task.fields.summary,
-                          self._url_server + "browse/" + task.key, task.fields.status,
+                          self.link_browse(task.key), task.fields.status,
                           task.fields.aggregatetimeestimate / 3600, 'h')
-                    f.write(' '.join((str(task), str(task.fields.assignee) if task.fields.assignee else 'Not assigned', task.fields.summary,
-                          self._url_server + "browse/" + task.key, str(task.fields.status),
-                          str(task.fields.aggregatetimeestimate / 3600) + 'h')) + '\n')
-                if False:
+                    f.write(' '.join((str(task), str(task.fields.assignee) if task.fields.assignee else 'Not assigned',
+                                      task.fields.summary, self.link_browse(task.key),
+                                      str(task.fields.status),
+                                      str(task.fields.aggregatetimeestimate / 3600) + 'h')) + '\n')
+                if cleaner:
                     task.update(update={"timetracking": [{"edit": {"remainingEstimate": "0h"}}]})
             # task.update(update={"timetracking_remainingestimate": "0h"})
+
+    def link_browse(self, key: str):
+        return self._url_server + "browse/" + key
 
     def false_status(self):
         # sprint_field = self._fields['sprints']['field']
         # fields = 'summary, assignee, ' + sprint_field + ', status'
         fields = 'summary, assignee, status'
         # filtre = ' AND Sprint in closedSprints() AND Sprint not in openSprints() AND ' \
-        filtre = ' AND ' \
+        filtre = 'AND ' \
                  'status not in (Closed, Cancelled, Done, Closed, Validated) ORDER BY status ASC'
-        for task in self.search('project = ' + self._project + filtre,
+        for task in self.search(self._filter_project() + filtre,
                                 50000, fields=fields, trc=True):
             # print(task.key)
             print(task, task.fields.assignee if task.fields.assignee else 'Non assignée', task.fields.summary,
-                  self._url_server + "browse/" + task.key,
+                  self.link_browse(task.key),
                   # attrgetter(sprint_field)(task.fields)[-1].split(',name=')[-1].split(',startDate=')[0],
                   task.fields.status)
 
     def epic_ticket(self, dates: list, filtre: str = '', suffix: str = ''):
         epics_date = {}
         us_date = {}
-        now = datetime.now().strftime('%Y-%m-%d')
+        now = datetime.now().strftime(Y_M_D)
         epics_changelogs, epics_fields, tickets_changelogs, tickets_fields = self._prepare_epic_ticket(dates,
                                                                                                        epics_date, now,
                                                                                                        us_date)
@@ -264,9 +272,9 @@ class JiraSM:
         self._prepare_epics(dates, epics_changelogs, epics_date, epics_fields, now)
 
         epics_no_rights = {}
-        for ticket in self.search(jql_str='project = ' + self._project +
-                                          ' AND type in ("' + '", "'.join(self._type_base) + '") ' + filtre +
-                                          ' ORDER BY key asc',
+        for ticket in self.search(jql_str=
+                                  self._filter_project() + 'AND type in ("' + '", "'.join(self._type_base) + '") ' +
+                                  filtre + ' ORDER BY key asc',
                                   maxResults=False, expand='changelog', trc=False,
                                   fields=', '.join(tickets_fields)):
 
@@ -285,7 +293,7 @@ class JiraSM:
             logging.warning('Right to see {} ?'.format(' '.join(epics_no_rights.keys())))
             logging.warning('Exemple ticket from epic: {}'.format(epics_no_rights))
 
-        now = datetime.now().strftime('%Y-%m-%d')
+        now = datetime.now().strftime(Y_M_D)
         path_file = self._path_data + now.replace('-', '') + self._project + '_' + suffix + '.json'
         with open(path_file, 'w', encoding='utf-8') as f:
             json.dump(us_date, f, indent=2)
@@ -327,7 +335,7 @@ class JiraSM:
                     # changelog_item.fromString, changelog_item.to, changelog_item.toString
 
     def _prepare_epics(self, dates, epics_changelogs, epics_date, epics_fields, now):
-        for epic in self.search(jql_str='project = ' + self._project + ' AND type = Epic ORDER BY key asc',
+        for epic in self.search(jql_str=self._filter_project() + ' AND type = Epic ORDER BY key asc',
                                 maxResults=3000, fields=', '.join(epics_fields), expand='changelog'):
 
             created = epic.fields.created[:10]

@@ -41,7 +41,7 @@ def no_link(pres: dict) -> None:
 
 def flexoffice() -> None:
     c = jiraconf()
-    with open(c['projects']['Common']['path_data'] + 'teams.json', 'r', encoding='utf-8') as fp:
+    with open(c['Common']['path_data'] + 'teams.json', 'r', encoding='utf-8') as fp:
         datas_sm = json.load(fp)
     pres = presence(datas_sm)
     jours_presence(pres)

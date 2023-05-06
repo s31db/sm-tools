@@ -22,8 +22,9 @@ ConfigParser.__getattr__ = lambda self, key: ConfigParser.defaults(self).get(key
 def test_config():
     c = config('tests/test_ressources/test_config.ini')
     assert c['PROJECT_1']['path_project'] == '/PROJECT_1'
-    assert c['PROJECT_1']['path_tmp'] == 'C:/tmp'
-    assert c.PROJECT_1['path_tmp'] == 'C:/tmp'
-    assert c.PROJECT_1.path_tmp == 'C:/tmp'
-    assert c['PROJECT_2'].path_tmp == 'C:/tmp'
+    tmp = 'C:/tmp'
+    assert c['PROJECT_1']['path_tmp'] == tmp
+    assert c.PROJECT_1['path_tmp'] == tmp
+    assert c.PROJECT_1.path_tmp == tmp
+    assert c['PROJECT_2'].path_tmp == tmp
     assert c.PROJECT_2.path_project == '/PROJECT_2'
