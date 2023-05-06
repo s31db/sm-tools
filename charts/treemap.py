@@ -29,7 +29,7 @@ class Treemap:
         return self
 
     def build(self):
-        global_parent = 'Treemap'
+        global_parent = self._title
         names = [global_parent]
         custom_data = ['']
         custom_data_statues = ['']

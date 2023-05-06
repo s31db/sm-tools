@@ -35,14 +35,17 @@ def jira_cum(project: str, date_file: str = None,
         cum.datas(datas_sm).colors(my_dict).asofs_all(filter_dates).build().show()
 
 
-def jira_treemap(project: str, suffix: str = '', date_file: str = None, html: bool = False, chart_html: bool = False):
+def jira_treemap(project: str, suffix: str = '', date_file: str = None, html: bool = False, chart_html: bool = False,
+                 show: bool = False):
     data_conf, n, now = get_tree(project, suffix, date_file)
+    t = Treemap(project + ' ' + now, nodes=n, **data_conf['projects'][project]).build()
     if chart_html:
-        return Treemap('Treemap ' + now, nodes=n, **data_conf['projects'][project]).build().chart_html()
-    elif html:
-        Treemap('Treemap ' + now, nodes=n, **data_conf['projects'][project]).build().show().html()
-    else:
-        Treemap('Treemap ' + now, nodes=n, **data_conf['projects'][project]).build().show()
+        t.chart_html()
+    if html:
+        t.html()
+    if show:
+        t.show()
+    return t
 
 
 def get_tree(project: str, suffix: str = '', date_file: str = None):

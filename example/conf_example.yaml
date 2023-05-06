@@ -1,10 +1,17 @@
 projects:
 #  https://xxxx.atlassian.net/rest/api/2/field
+#  https://xxxx.atlassian.net/rest/api/2/issue/XXX
+#  https://xxxx.atlassian.net/rest/api/2/search?jql=key%20%3D%20XXX&expand=changelog
+  Common:
+    path_data: datas/
   Example:
     name: Example
     url_server: mock
     token_auth: mock
     path_data: datas/
+    filter: ''
+    start: '2023-01-01'
+    weeks: 12
     type_base:
       - User Story
       - Bug

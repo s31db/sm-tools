@@ -213,7 +213,7 @@ class JiraSM:
 
     def remaining(self):
         fields = 'summary, assignee, aggregatetimeestimate, status'
-        filters = {'remaining': '',
+        filters = {'remaining': 'and remainingEstimate > 0',
                    'doneOrCancel': 'and (status = DONE or status = CANCELED)',
                    'subtaskdone': 'and status in (Done, Closed) and issuetype in (ST-Dev, ST-Doc, ST-Tst)',
                    'doneOrValidate': 'and (status = DONE or status = "To Validate")',
@@ -224,7 +224,7 @@ class JiraSM:
         path_file = self._path_data + now.replace('-', '') + self._project + '_' + 'remaining' + '.txt'
         with open(path_file, 'w', encoding='utf-8') as f:
             for task in self.search('project = ' + self._project + ' ' + filters['subtaskdone'] +
-                                    ' and remainingEstimate > 0 ORDER BY assignee ASC, remainingEstimate DESC',
+                                    '' + filters['remaining'] + '  ORDER BY assignee ASC, remainingEstimate DESC',
                                     maxResults=False, fields=fields, trc=True):
                 # print(task.key)
                 if task.fields.aggregatetimeestimate is not None:
