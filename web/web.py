@@ -47,7 +47,7 @@ class MyServer(BaseHTTPRequestHandler):
             self.w("<input name='" + key + "_step' id='" + key + "_step' type='text' value='" +
                    '0' + "' size='200'/><br/>")
             self.w('<fieldset><legend>Action</legend>')
-            for key_action, action in actions.items():
+            for key_action in actions.keys():
                 self.w('<input name="'+key+'_actions" type="checkbox" value="'+key_action+'">' + key_action +
                        '</input><br/>')
             self.w('</fieldset><br/>')

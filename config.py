@@ -14,7 +14,7 @@ def config(path: str = None) -> ConfigParser:
     return conf
 
 
-SectionProxy.__getattr__ = lambda self, key: SectionProxy.__getitem__(self, key)
+SectionProxy.__getattr__ = SectionProxy.__getitem__
 ConfigParser.__getattr__ = lambda self, key: ConfigParser.defaults(self).get(key) \
     if key in ConfigParser.defaults(self) else ConfigParser.__getitem__(self, key)
 

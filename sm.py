@@ -15,8 +15,8 @@ from atlassian.jiraSM import JiraSM
 def jira_cum(project: str, date_file: str = None,
              suffix: str = '', step: int = 1, details: bool = False, chart_html: bool = False,
              start_date: str = '2023-01-09', weeks: int = 15):
-    d, data_conf, datas_sm = prepare_data(project=project, suffix=suffix, start_date=start_date, weeks=weeks,
-                                          date_file=date_file)
+    d = dates(start_date=start_date, weeks=weeks)
+    data_conf, datas_sm = prepare_data(project=project, suffix=suffix, date_file=date_file)
     i = 0
     filter_dates = []
     for da in d:
@@ -46,27 +46,20 @@ def jira_treemap(project: str, suffix: str = '', date_file: str = None, html: bo
 
 
 def get_tree(project: str, suffix: str = '', date_file: str = None):
-    if date_file:
-        now = date_file
-    else:
-        now = (datetime.now() + timedelta(days=-0)).strftime('%Y-%m-%d')
-    d, data_conf, datas_sm = prepare_data(project=project, suffix=suffix, date_file=date_file)
+    now = datefile(date_file)
+    data_conf, datas_sm = prepare_data(project=project, suffix=suffix, date_file=date_file)
     n = tree.build_tree(datas_sm[now])[1]
     return data_conf, n, now
 
 
-def prepare_data(project: str, suffix: str, start_date: str = '2023-01-09', weeks: int = 9, date_file: str = None):
+def prepare_data(project: str, suffix: str, date_file: str = None):
     data_conf = jiraconf()
-    d = dates(start_date=start_date, weeks=weeks)
-    if date_file:
-        now = date_file
-    else:
-        now = (datetime.now() + timedelta(days=-0)).strftime('%Y-%m-%d')
+    now = datefile(date_file)
     print(data_conf['projects'][project]['path_data'] + now.replace('-', '') + project + '_' + suffix + '.json')
     with open(data_conf['projects'][project]['path_data'] + now.replace('-', '') + project + '_' + suffix + '.json',
               'r', encoding='utf-8') as fp:
         datas_sm = json.load(fp)
-    return d, data_conf, datas_sm
+    return data_conf, datas_sm
 
 
 def dates(start_date: str = '2023-01-09', weeks: int = 9):
@@ -97,10 +90,12 @@ def remaining(project: str):
 
 
 def sprints(project: str, suffix: str = ''):
-    d, data_conf, datas_sm = prepare_data(project=project, suffix=suffix)
+    data_conf, datas_sm = prepare_data(project=project, suffix=suffix)
     now = (datetime.now() + timedelta(days=-0)).strftime('%Y-%m-%d')
-    print('datas/' + now.replace('-', '') + project + '_' + 'infos_sprints' + '.json')
-    with open('datas/' + now.replace('-', '') + project + '_' + 'infos_sprints' + '.json', 'r', encoding='utf-8') as fp:
+    print(data_conf['projects'][project]['path_data'] +
+          now.replace('-', '') + project + '_' + 'infos_sprints' + '.json')
+    with open(data_conf['projects'][project]['path_data'] +
+              now.replace('-', '') + project + '_' + 'infos_sprints' + '.json', 'r', encoding='utf-8') as fp:
         s = json.load(fp)
     sprints_info = {}
     for key, sprint in s.items():
@@ -149,11 +144,8 @@ def float_to_int(value: float):
 
 
 def time_nb(project: str, suffix: str = '', date_file: str = None):
-    if date_file:
-        now = date_file
-    else:
-        now = (datetime.now() + timedelta(days=-0)).strftime('%Y-%m-%d')
-    d, data_conf, datas_sm = prepare_data(project=project, suffix=suffix, date_file=now)
+    now = datefile(date_file)
+    datas_sm = prepare_data(project=project, suffix=suffix, date_file=now)[1]
     tickets = []
     dates_end = {}
     status_start = ('To Do', 'In Progress', 'Blocked', 'Done', 'Testing', 'Validated', 'Closed')
@@ -198,16 +190,21 @@ def time_nb(project: str, suffix: str = '', date_file: str = None):
         print(estimate/10, ':', sum(tps)/len(tps))
 
 
-def histogramme(project: str, suffix: str = '', date_file: str = None):
+def datefile(date_file):
     if date_file:
         now = date_file
     else:
         now = (datetime.now() + timedelta(days=-0)).strftime('%Y-%m-%d')
-    d, data_conf, datas_sm = prepare_data(project=project, suffix=suffix, date_file=now)
+    return now
+
+
+def histogramme(project: str, suffix: str = '', date_file: str = None):
+    now = datefile(date_file)
+    datas_sm = prepare_data(project=project, suffix=suffix, date_file=now)[1]
     tickets = []
     dates_end = {}
-    dates = list(datas_sm.keys())
-    for da in dates:
+    datas_dates = list(datas_sm.keys())
+    for da in datas_dates:
         if da <= now:
             for ticket, value in datas_sm[da].items():
                 if ticket not in tickets and value['status'] in ('Done', 'Closed'):
