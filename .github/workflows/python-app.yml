@@ -38,5 +38,9 @@ jobs:
     - name: Test with pytest
       run: |
         pytest
+    - name: Install tox and any other packages
+      run: pip install tox
+    - name: Run tox
+      run: tox -e py
     - name: Upload coverage reports to Codecov
       uses: codecov/codecov-action@v3
