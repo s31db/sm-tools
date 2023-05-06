@@ -46,10 +46,7 @@ def jira_treemap(project: str, suffix: str = '', date_file: str = None, html: bo
 
 
 def get_tree(project: str, suffix: str = '', date_file: str = None):
-    if date_file:
-        now = date_file
-    else:
-        now = (datetime.now() + timedelta(days=-0)).strftime('%Y-%m-%d')
+    now = datefile(date_file)
     data_conf, datas_sm = prepare_data(project=project, suffix=suffix, date_file=date_file)
     n = tree.build_tree(datas_sm[now])[1]
     return data_conf, n, now
@@ -57,10 +54,7 @@ def get_tree(project: str, suffix: str = '', date_file: str = None):
 
 def prepare_data(project: str, suffix: str, date_file: str = None):
     data_conf = jiraconf()
-    if date_file:
-        now = date_file
-    else:
-        now = (datetime.now() + timedelta(days=-0)).strftime('%Y-%m-%d')
+    now = datefile(date_file)
     print(data_conf['projects'][project]['path_data'] + now.replace('-', '') + project + '_' + suffix + '.json')
     with open(data_conf['projects'][project]['path_data'] + now.replace('-', '') + project + '_' + suffix + '.json',
               'r', encoding='utf-8') as fp:
@@ -98,8 +92,10 @@ def remaining(project: str):
 def sprints(project: str, suffix: str = ''):
     data_conf, datas_sm = prepare_data(project=project, suffix=suffix)
     now = (datetime.now() + timedelta(days=-0)).strftime('%Y-%m-%d')
-    print('datas/' + now.replace('-', '') + project + '_' + 'infos_sprints' + '.json')
-    with open('datas/' + now.replace('-', '') + project + '_' + 'infos_sprints' + '.json', 'r', encoding='utf-8') as fp:
+    print(data_conf['projects'][project]['path_data'] +
+          now.replace('-', '') + project + '_' + 'infos_sprints' + '.json')
+    with open(data_conf['projects'][project]['path_data'] +
+              now.replace('-', '') + project + '_' + 'infos_sprints' + '.json', 'r', encoding='utf-8') as fp:
         s = json.load(fp)
     sprints_info = {}
     for key, sprint in s.items():
@@ -148,11 +144,8 @@ def float_to_int(value: float):
 
 
 def time_nb(project: str, suffix: str = '', date_file: str = None):
-    if date_file:
-        now = date_file
-    else:
-        now = (datetime.now() + timedelta(days=-0)).strftime('%Y-%m-%d')
-    data_conf, datas_sm = prepare_data(project=project, suffix=suffix, date_file=now)
+    now = datefile(date_file)
+    datas_sm = prepare_data(project=project, suffix=suffix, date_file=now)[1]
     tickets = []
     dates_end = {}
     status_start = ('To Do', 'In Progress', 'Blocked', 'Done', 'Testing', 'Validated', 'Closed')
@@ -197,11 +190,16 @@ def time_nb(project: str, suffix: str = '', date_file: str = None):
         print(estimate/10, ':', sum(tps)/len(tps))
 
 
-def histogramme(project: str, suffix: str = '', date_file: str = None):
+def datefile(date_file):
     if date_file:
         now = date_file
     else:
         now = (datetime.now() + timedelta(days=-0)).strftime('%Y-%m-%d')
+    return now
+
+
+def histogramme(project: str, suffix: str = '', date_file: str = None):
+    now = datefile(date_file)
     data_conf, datas_sm = prepare_data(project=project, suffix=suffix, date_file=now)
     tickets = []
     dates_end = {}

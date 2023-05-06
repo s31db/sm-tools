@@ -257,6 +257,99 @@ class JiraSM:
         epics_date = {}
         us_date = {}
         now = datetime.now().strftime('%Y-%m-%d')
+        epics_changelogs, epics_fields, tickets_changelogs, tickets_fields = self._prepare_epic_ticket(dates,
+                                                                                                       epics_date, now,
+                                                                                                       us_date)
+
+        self._prepare_epics(dates, epics_changelogs, epics_date, epics_fields, now)
+
+        epics_no_rights = {}
+        for ticket in self.search(jql_str='project = ' + self._project +
+                                          ' AND type in ("' + '", "'.join(self._type_base) + '") ' + filtre +
+                                          ' ORDER BY key asc',
+                                  maxResults=False, expand='changelog', trc=False,
+                                  fields=', '.join(tickets_fields)):
+
+            created = ticket.fields.created[:10]
+            ticket_super = attrgetter(self._super['field'])(ticket.fields)
+            if SUPER in self._super:
+                ticket_super_super = attrgetter(self._super[SUPER]['field'])(ticket.fields)
+            else:
+                ticket_super_super = None
+            self._epic_tickets_by_date(created, dates, epics_date, epics_no_rights, now, ticket, ticket_super,
+                                       ticket_super_super, us_date)
+
+            self._epic_ticket_changelog(created, dates, epics_date, ticket, tickets_changelogs, us_date)
+
+        if epics_no_rights:
+            logging.warning('Right to see {} ?'.format(' '.join(epics_no_rights.keys())))
+            logging.warning('Exemple ticket from epic: {}'.format(epics_no_rights))
+
+        now = datetime.now().strftime('%Y-%m-%d')
+        path_file = self._path_data + now.replace('-', '') + self._project + '_' + suffix + '.json'
+        with open(path_file, 'w', encoding='utf-8') as f:
+            json.dump(us_date, f, indent=2)
+        return us_date, path_file
+
+    def _epic_tickets_by_date(self, created, dates, epics_date, epics_no_rights, now, ticket, ticket_super,
+                              ticket_super_super, us_date):
+        for date in dates:
+            if created <= date <= now:
+                us_date[date][ticket.key] = {'update': {SUPER: now, SUPER_SUPER: now}}
+                for us_field, us_field_conf in self._fields.items():
+                    try:
+                        us_date[date][ticket.key][us_field] = attrgetter(us_field_conf['field'])(ticket.fields)
+                    except AttributeError:
+                        logging.info('AttributeError :' + us_field_conf['field'])
+                    us_date[date][ticket.key]['update'][us_field] = now
+                add_super(date, ticket_super_super, epics_date, epics_no_rights,
+                          ticket_super, ticket, us_date, self._super)
+
+    def _epic_ticket_changelog(self, created, dates, epics_date, ticket, tickets_changelogs, us_date):
+        for changelog in ticket.changelog.histories:
+            changelog_date = changelog.created[:10]
+            for changelog_item in changelog.items:
+                if changelog_item.field in tickets_changelogs:
+                    field = 'name' if changelog_item.field == 'summary' else tickets_changelogs[changelog_item.field]
+                    for date in dates:
+                        if created <= date < changelog_date <= us_date[date][ticket.key]['update'][field]:
+                            us_date[date][ticket.key][field] = changelog_item.fromString
+                            us_date[date][ticket.key]['update'][field] = changelog_date
+                elif changelog_item.field in (self._super['field_changelog'],):
+                    change_super(changelog_date, changelog_item, created, dates, epics_date, ticket, us_date,
+                                 self._super)
+                elif SUPER in self._super and changelog_item.field in (self._super[SUPER]['field_changelog'],):
+                    change_super(changelog_date, changelog_item, created, dates, epics_date, ticket, us_date,
+                                 self._super)
+                elif changelog_item.field not in self._fields_change_ignored:
+                    logging.debug('Field not ignored {} {} {} '.format(
+                        changelog_item.field, changelog_item.fieldtype, getattr(changelog_item, 'from')))
+                    # changelog_item.fromString, changelog_item.to, changelog_item.toString
+
+    def _prepare_epics(self, dates, epics_changelogs, epics_date, epics_fields, now):
+        for epic in self.search(jql_str='project = ' + self._project + ' AND type = Epic ORDER BY key asc',
+                                maxResults=3000, fields=', '.join(epics_fields), expand='changelog'):
+
+            created = epic.fields.created[:10]
+            for date in dates:
+                if created <= date <= now:
+                    epics_date[date][epic.key] = {'update': {}}
+                    for epic_field, epic_field_conf in self._epic_fields.items():
+                        epics_date[date][epic.key][epic_field] = attrgetter(epic_field_conf['field'])(epic.fields)
+                        epics_date[date][epic.key]['update'][epic_field] = now
+
+            for changelog in epic.changelog.histories:
+                changelog_date = changelog.created[:10]
+                for changelog_item in changelog.items:
+                    field = changelog_item.field
+                    if field in epics_changelogs:
+                        for date in dates:
+                            if created <= date < changelog_date <= \
+                                    epics_date[date][epic.key]['update'][epics_changelogs[field]]:
+                                epics_date[date][epic.key][epics_changelogs[field]] = changelog_item.fromString
+                                epics_date[date][epic.key]['update'][epics_changelogs[field]] = changelog_date
+
+    def _prepare_epic_ticket(self, dates, epics_date, now, us_date):
         for date in dates:
             if date <= now:
                 epics_date[date] = {}
@@ -278,82 +371,7 @@ class JiraSM:
                 tickets_changelogs[value['field_changelog']] = key
             if 'field' in value:
                 tickets_fields.append(value['field'].split('.')[0])
-
-        for epic in self.search(jql_str='project = ' + self._project + ' AND type = Epic ORDER BY key asc',
-                                maxResults=3000, fields=', '.join(epics_fields), expand='changelog'):
-
-            created = epic.fields.created[:10]
-            for date in dates:
-                if created <= date <= now:
-                    epics_date[date][epic.key] = {'update': {}}
-                    for epic_field, epic_field_conf in self._epic_fields.items():
-                        epics_date[date][epic.key][epic_field] = attrgetter(epic_field_conf['field'])(epic.fields)
-                        epics_date[date][epic.key]['update'][epic_field] = now
-
-            for changelog in epic.changelog.histories:
-                changelog_date = changelog.created[:10]
-                for changelog_item in changelog.items:
-                    field = changelog_item.field
-                    if field in epics_changelogs:
-                        for date in dates:
-                            if created <= date < changelog_date <= epics_date[date][epic.key]['update'][epics_changelogs[field]]:
-                                epics_date[date][epic.key][epics_changelogs[field]] = changelog_item.fromString
-                                epics_date[date][epic.key]['update'][epics_changelogs[field]] = changelog_date
-
-        epics_no_rights = {}
-        for ticket in self.search(jql_str='project = ' + self._project +
-                                          ' AND type in ("' + '", "'.join(self._type_base) + '") ' + filtre +
-                                          ' ORDER BY key asc',
-                                  maxResults=False, expand='changelog', trc=False,
-                                  fields=', '.join(tickets_fields)):
-
-            created = ticket.fields.created[:10]
-            ticket_super = attrgetter(self._super['field'])(ticket.fields)
-            if SUPER in self._super:
-                ticket_super_super = attrgetter(self._super[SUPER]['field'])(ticket.fields)
-            else:
-                ticket_super_super = None
-            for date in dates:
-                if created <= date <= now:
-                    us_date[date][ticket.key] = {'update': {SUPER: now, SUPER_SUPER: now}}
-                    for us_field, us_field_conf in self._fields.items():
-                        try:
-                            us_date[date][ticket.key][us_field] = attrgetter(us_field_conf['field'])(ticket.fields)
-                        except AttributeError:
-                            logging.info('AttributeError :' + us_field_conf['field'])
-                        us_date[date][ticket.key]['update'][us_field] = now
-                    add_super(date, ticket_super_super, epics_date, epics_no_rights,
-                              ticket_super, ticket, us_date, self._super)
-
-            for changelog in ticket.changelog.histories:
-                changelog_date = changelog.created[:10]
-                for changelog_item in changelog.items:
-                    if changelog_item.field in tickets_changelogs:
-                        field = 'name' if changelog_item.field == 'summary' else tickets_changelogs[changelog_item.field]
-                        for date in dates:
-                            if created <= date < changelog_date <= us_date[date][ticket.key]['update'][field]:
-                                us_date[date][ticket.key][field] = changelog_item.fromString
-                                us_date[date][ticket.key]['update'][field] = changelog_date
-                    elif changelog_item.field in (self._super['field_changelog'],):
-                        change_super(changelog_date, changelog_item, created, dates, epics_date, ticket, us_date,
-                                     self._super)
-                    elif SUPER in self._super and changelog_item.field in (self._super[SUPER]['field_changelog'],):
-                        change_super(changelog_date, changelog_item, created, dates, epics_date, ticket, us_date,
-                                     self._super)
-                    elif changelog_item.field not in self._fields_change_ignored:
-                        logging.debug('Field not ignored {} {} {} '.format(
-                            changelog_item.field, changelog_item.fieldtype, getattr(changelog_item, 'from')))
-                        # changelog_item.fromString, changelog_item.to, changelog_item.toString
-
-        if epics_no_rights:
-            logging.warning('Right to see {} ?'.format(' '.join(epics_no_rights.keys())))
-            logging.warning('Exemple ticket from epic: {}'.format(epics_no_rights))
-
-        now = datetime.now().strftime('%Y-%m-%d')
-        path_file = self._path_data + now.replace('-', '') + self._project + '_' + suffix + '.json'
-        with open(path_file, 'w', encoding='utf-8') as f:
-            json.dump(us_date, f, indent=2)
-        return us_date, path_file
+        return epics_changelogs, epics_fields, tickets_changelogs, tickets_fields
 
     def sprints(self):
         s = {}

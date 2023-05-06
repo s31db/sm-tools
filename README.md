@@ -11,13 +11,13 @@
 7.  Treemap pour visualisation large et navigable
 8.  Rapport avec graphique
 9.  Version web pour partage et appel des pages (https://medium.com/plotly/introducing-dash-5ecf7191b503 https://dash.plotly.com/introduction)
-10.  Préparation review
-11.  Aide préparation, animation rétro:
+10. Préparation review
+11. Aide préparation, animation rétro:
     1.  extraction image depuis pdf
     2.  construction d'image d'US
     3.  image placé dans le presse papier
     4.  image coller suivant règle
-12.  Préparation release notes
+12. Préparation release notes
 
 ## Format de stockage
 -   Json dans répertoire local autre que project.
