@@ -200,11 +200,11 @@ def datefile(date_file):
 
 def histogramme(project: str, suffix: str = '', date_file: str = None):
     now = datefile(date_file)
-    data_conf, datas_sm = prepare_data(project=project, suffix=suffix, date_file=now)
+    datas_sm = prepare_data(project=project, suffix=suffix, date_file=now)[1]
     tickets = []
     dates_end = {}
-    dates = list(datas_sm.keys())
-    for da in dates:
+    datas_dates = list(datas_sm.keys())
+    for da in datas_dates:
         if da <= now:
             for ticket, value in datas_sm[da].items():
                 if ticket not in tickets and value['status'] in ('Done', 'Closed'):
