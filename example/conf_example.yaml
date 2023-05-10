@@ -1,0 +1,89 @@
+Common:
+  path_data: datas/
+projects:
+#  https://xxxx.atlassian.net/rest/api/2/field
+#  https://xxxx.atlassian.net/rest/api/2/issue/XXX
+#  https://xxxx.atlassian.net/rest/api/2/search?jql=key%20%3D%20XXX&expand=changelog
+  Example:
+    name: Example
+    url_server: mock
+    token_auth: mock
+    path_data: datas/
+    filter: ''
+    start: '2023-01-01'
+    weeks: 12
+    type_base:
+      - User Story
+      - Bug
+      - Task
+    epic_fields:
+      name:
+        field: summary
+        field_changelog: summary
+      status:
+        field: status.name
+        field_changelog: status
+      created:
+        field: created
+    fields:
+      name:
+        field: summary
+        field_changelog: summary
+      status:
+        field: status.name
+        field_changelog: status
+      estimate:
+        field: customfield_10106
+        field_changelog: estimate
+      created:
+        field: created
+      sprints:
+        field: customfield_10100
+        field_changelog: sprint
+    # sprint
+    super:
+      field: customfield_10100
+      field_changelog: Sprint
+      default_name: Backlog
+      # Epic
+      super:
+        field: customfield_10101
+        field_changelog: Epic Link
+        default_name: No Epic
+    status_done:
+      - Done
+      - Close
+    fields_change_ignored:
+      - Rank
+      - Link
+      - Attachment
+      - description
+      - assignee
+      - priority
+      - resolution
+      - Flagged
+      - issuetype
+      - RemoteIssueLink
+      - labels
+      - Comment
+      - reporter
+      - Fix Version
+      - Workflow
+      - Key
+      - project
+    group_status:
+      Analysis: To Do
+      Estimate: To Do
+      In Test: In Progress
+      To Integrate: In Progress
+      Close: Done
+    colors:
+      Analysis: '#858080'
+      Estimate: '#858080'
+      To Do: '#999898'
+      In Progress: '#5358ad'
+      Blocked: '#a32f2f'
+      In Test: '#448344'
+      To Integrate: seagreen
+      Done: darkgreen
+      Close: darkgreen
