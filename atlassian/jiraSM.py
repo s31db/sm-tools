@@ -3,10 +3,8 @@ import logging
 import statistics
 from decimal import Decimal
 import math
-from config import config
 import json
 from datetime import datetime
-from configparser import ConfigParser
 from operator import attrgetter
 
 Y_M_D = '%Y-%m-%d'
@@ -108,7 +106,6 @@ def change_super(changelog_date, changelog_item, created, dates, epics_date, tic
 
 
 class JiraSM:
-    conf: ConfigParser = config()
     _jira: JIRA
     _project: str
     _url_server: str
@@ -119,11 +116,9 @@ class JiraSM:
     _fields: dict
     _super: dict
     _board_id: int
+    _trc: bool = False
 
     def __init__(self, **kwargs):
-        # self._project = self.conf.JIRA.project
-        # self._fields_change_ignored = self.conf.JIRA.fields_change_ignored.split(', ')
-        # self._url_server = self.conf.JIRA.url_server
         for key, value in kwargs.items():
             setattr(self, '_' + key, value)
 
@@ -135,8 +130,10 @@ class JiraSM:
         return self
 
     def search(self, jql_str: str, maxResults: int = 10000, fields: str = None, expand: str = None, trc: bool = False):
-        if trc:
+        if trc or self._trc:
             print(jql_str)
+            from urllib.parse import quote_plus
+            print(self._url_server + '/issues/?jql='+quote_plus(jql_str))
         return self._jira.search_issues(jql_str=jql_str, maxResults=maxResults, fields=fields, expand=expand)
         # results = self._jira.search_issues(jql_str=jql_str, maxResults=maxResults, fields=fields, expand=expand)
         # for result in results:
@@ -261,7 +258,7 @@ class JiraSM:
                   # attrgetter(sprint_field)(task.fields)[-1].split(',name=')[-1].split(',startDate=')[0],
                   task.fields.status)
 
-    def epic_ticket(self, dates: list, filtre: str = '', suffix: str = ''):
+    def epic_ticket(self, dates: list, filtre: str = '', suffix: str = '', file: bool = True):
         epics_date = {}
         us_date = {}
         now = datetime.now().strftime(Y_M_D)
@@ -295,8 +292,9 @@ class JiraSM:
 
         now = datetime.now().strftime(Y_M_D)
         path_file = self._path_data + now.replace('-', '') + self._project + '_' + suffix + '.json'
-        with open(path_file, 'w', encoding='utf-8') as f:
-            json.dump(us_date, f, indent=2)
+        if file:
+            with open(path_file, 'w', encoding='utf-8') as f:
+                json.dump(us_date, f, indent=2)
         return us_date, path_file
 
     def _epic_tickets_by_date(self, created, dates, epics_date, epics_no_rights, now, ticket, ticket_super,

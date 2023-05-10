@@ -11,6 +11,8 @@ import yaml
 from yaml.loader import SafeLoader
 from atlassian.jiraSM import JiraSM
 
+Y_M_D = '%Y-%m-%d'
+
 
 def jira_cum(project: str, date_file: str = None,
              suffix: str = '', step: int = 1, details: bool = False, chart_html: bool = False,
@@ -94,7 +96,7 @@ def remaining(project: str):
 
 def sprints(project: str, suffix: str = ''):
     data_conf, datas_sm = prepare_data(project=project, suffix=suffix)
-    now = (datetime.now() + timedelta(days=-0)).strftime('%Y-%m-%d')
+    now = (datetime.now() + timedelta(days=-0)).strftime(Y_M_D)
     print(data_conf['projects'][project]['path_data'] +
           now.replace('-', '') + project + '_' + 'infos_sprints' + '.json')
     with open(data_conf['projects'][project]['path_data'] +
@@ -165,8 +167,8 @@ def time_nb(project: str, suffix: str = '', date_file: str = None):
                                     dates_end[da] = {}
                                 estimate = float_to_int(datas_sm[da][ticket]['estimate']) if 'estimate' in \
                                                                                              datas_sm[da][ticket] else 1
-                                dates_end[da][ticket] = {'tps': (datetime.strptime(da, '%Y-%m-%d') - datetime.strptime(
-                                    st_da, '%Y-%m-%d')).days, 'tps_t': dates.index(da)-dates.index(st_da),
+                                dates_end[da][ticket] = {'tps': (datetime.strptime(da, Y_M_D) - datetime.strptime(
+                                    st_da, Y_M_D)).days, 'tps_t': dates.index(da)-dates.index(st_da),
                                                          'estimate': estimate,
                                                          'date': da[:7]}
                                 break
@@ -197,7 +199,7 @@ def datefile(date_file):
     if date_file:
         now = date_file
     else:
-        now = (datetime.now() + timedelta(days=-0)).strftime('%Y-%m-%d')
+        now = (datetime.now() + timedelta(days=-0)).strftime(Y_M_D)
     return now
 
 
