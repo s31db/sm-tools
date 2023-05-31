@@ -46,6 +46,8 @@ class MyServer(BaseHTTPRequestHandler):
             self.w("<label for='" + key + "_filter'>Filtre : </label>")
             self.wl("<input name='" + key + "_filter' id='" + key + "_filter' type='text' value='" +
                     escape(conf['filter']) + "' size='200'/>")
+            self.w("<label for='" + key + "_now'>Now : </label>")
+            self.wl("<input type='checkbox' name='" + key + "_now' id='" + key + "_now' type='text' value='True'/>")
             self.w("<label for='" + key + "_step'>Step : </label>")
             self.wl("<input name='" + key + "_step' id='" + key + "_step' type='text' value='" + '0' + "' size='200'/>")
             self.w('<fieldset><legend>Action</legend>')

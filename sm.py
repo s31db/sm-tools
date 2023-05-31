@@ -67,8 +67,8 @@ def prepare_data(project: str, suffix: str, date_file: str = None):
     return data_conf, datas_sm
 
 
-def dates(start_date: str = '2023-01-09', weeks: int = 9):
-    return list(sprint_dates(start_date, weeks))
+def dates(start_date: str = '2023-01-09', weeks: int = 9, now: bool = False):
+    return list(sprint_dates(start_date, weeks, now=now))
 
 
 def extract_jira(project: str, start_date: str, filtre: str = '', suffix: str = ''):

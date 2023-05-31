@@ -1,13 +1,20 @@
 from datetime import timedelta, date
 # https://github.com/etalab/jours-feries-france
 from jours_feries_france import JoursFeries
+from datetime import datetime
 
 
-def sprint_dates(start_date: str, weeks: int = 1, frm: str = '%Y-%m-%d'):
-    for i in range(7 * weeks):
-        d = date.fromisoformat(start_date) + timedelta(days=i)
+def sprint_dates(start_date: str, weeks: int = 1, frm: str = '%Y-%m-%d', now: bool = False):
+    d = date.fromisoformat(start_date)
+    for i in range((7 * weeks) + 1):
         if d.weekday() < 5 and not JoursFeries.is_bank_holiday(d):
             yield d.strftime(frm)
+        d += timedelta(days=1)
+    if now:
+        n = datetime.now().date()
+        while d <= n:
+            yield d.strftime(frm)
+            d += timedelta(days=1)
 
 
 def test_sprint_dates():
