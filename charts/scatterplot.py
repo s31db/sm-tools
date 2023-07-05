@@ -8,20 +8,20 @@ from charts.chart import Chart
 
 class Scatter(Chart):
     _values: dict
-    _legend: str | bool
+    _legend: str | bool | None
     _percent: dict = {0.5: 'blue', 0.75: 'green', 0.85: 'red'}
-    _xtick: list
+    _xtick: list | None
     _x: str
     _y: str
-    _size: str
-    _size_order: list
-    _hue: str
-    _hue_order: list
-    _style: str
-    _style_order: list
-    _palette: str
-    _ncol_legend: int
-    _filtre: str
+    _size: str | None
+    _size_order: list | None
+    _hue: str | None
+    _hue_order: list | None
+    _style: str | None
+    _style_order: list | None
+    _palette: str | None
+    _ncol_legend: int | None
+    _filtre: str = None
 
     def by_date(self):
         self._x = 'date'
@@ -97,4 +97,3 @@ class Scatter(Chart):
                      horizontalalignment='left', size='medium', color=color, weight='semibold')
 
         return self
-

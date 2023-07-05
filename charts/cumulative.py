@@ -46,8 +46,8 @@ class Cumulative(Chart):
 
         colors, vals = self.prepare_colors(vals)
         print(vals)
+        done_total_first = 0
         if self._restart_done:
-            done_total_first = 0
             for status_done in self._status_done:
                 if status_done in vals:
                     done_first = vals[status_done][0]
@@ -64,7 +64,10 @@ class Cumulative(Chart):
         dates = [datetime.strptime(d, "%Y-%m-%d") for d in self._asofs_all]
         if self._date_format:
             plt.xticks(dates)
-            ax.xaxis.set_major_locator(mdates.DayLocator(interval=7))
+            if len(dates) > 100:
+                ax.xaxis.set_major_locator(mdates.DayLocator(interval=14))
+            else:
+                ax.xaxis.set_major_locator(mdates.DayLocator(interval=7))
             ax.xaxis.set_major_formatter(mdates.DateFormatter("%d/%m"))
 
         if self._legend:
