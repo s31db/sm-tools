@@ -1,7 +1,7 @@
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import parse_qs
 from HtmlClipboard import put_html
-from sm import jiraconf, jira_cum, jira_treemap, extract_jira, analysis_tree
+from sm import jiraconf, jira_cum, jira_treemap, extract_jira, analysis_tree, time_nb
 from html import escape, unescape
 
 
@@ -17,16 +17,25 @@ class MyServer(BaseHTTPRequestHandler):
         self.send_response(200)
         if self.path in ('/favicon.ico', ):
             return
-        print(self.path)
-        self.send_header('Content-type', 'text/html')
-        self.end_headers()
-        self.w('<!DOCTYPE html/>')
-        self.w('<meta charset="UTF-8">')
-        self.w('<html><head><title>S@M Tools</title></head>')
-        self.w('<body>')
-        if self.path == '/':
-            self.index()
-        self.w('</body></html>')
+
+        elif self.path.startswith('/treemap'):
+            sfx = None
+            print('tt')
+            self.send_header('Content-type', 'text/html')
+            self.end_headers()
+            j = jira_treemap(project=self.path.split('project=')[1], date_file=sfx, html=False).chart_html()
+            self.w(j)
+        else:
+            print(self.path)
+            self.send_header('Content-type', 'text/html')
+            self.end_headers()
+            self.w('<!DOCTYPE html/>')
+            self.w('<meta charset="UTF-8">')
+            self.w('<html><head><title>S@M Tools</title></head>')
+            self.w('<body>')
+            if self.path == '/':
+                self.index()
+            self.w('</body></html>')
 
     def w(self, arg: str, append: bool = False):
         if append:
@@ -37,7 +46,8 @@ class MyServer(BaseHTTPRequestHandler):
         self.w(arg + '<br/>', append=append)
 
     def index(self):
-        actions = {'Extract': None, 'Burndown': None, 'Cumulative': None, 'Treemap': None, 'TreemapEpic': None}
+        actions = {'Extract': None, 'Burndown': None, 'Cumulative': None, 'Treemap': None, 'TreemapEpic': None,
+                   'time_nb': None}
         self.wl('<form method="post" action="/action">')
         self.w('<fieldset><legend>Project</legend>')
         dataconf = jiraconf()
@@ -46,15 +56,27 @@ class MyServer(BaseHTTPRequestHandler):
             self.w("<label for='" + key + "_filter'>Filtre : </label>")
             self.wl("<input name='" + key + "_filter' id='" + key + "_filter' type='text' value='" +
                     escape(conf['filter']) + "' size='200'/>")
+            self.w("<label for='" + key + "_start'>From : </label>")
+            self.w("<input name='" + key + "_start' id='" + key + "_start' type='text' value='" +
+                   escape(conf['start']) + "' size='10'/>")
+            self.w(" <label for='" + key + "_weeks'>Weeks : </label>")
+            self.w("<input name='" + key + "_weeks' id='" + key + "_weeks' type='text' value='" +
+                   str(conf['weeks']) + "' size='2'/>")
+            self.w(" <label for='" + key + "_now'>Now : </label>")
+            self.wl("<input type='checkbox' name='" + key + "_now' id='" + key +
+                    "_now' type='text' value='True' checked/>")
             self.w("<label for='" + key + "_step'>Step : </label>")
-            self.wl("<input name='" + key + "_step' id='" + key + "_step' type='text' value='" + '0' + "' size='200'/>")
+            self.wl("<input name='" + key + "_step' id='" + key + "_step' type='text' value='" + '0' + "' size='2'/>")
             self.w('<fieldset><legend>Action</legend>')
             for key_action in actions.keys():
                 self.wl('<input name="'+key+'_actions" type="checkbox" value="'+key_action+'">' + key_action +
                         '</input>')
             self.wl('</fieldset>')
         self.wl('</fieldset>')
-        self.w('<input id="reset" type="reset"/><input id="submit" type="submit"/>')
+        self.w('<div style="position: fixed; left:50%;top:5px; background-color: rgb(255 255 255 / 0.8);">')
+        self.w('<fieldset><legend>Action</legend>')
+        self.w('<input id="reset" type="reset" style="background-color: black; color: white;"/> ')
+        self.w('<input id="submit" type="submit" style="background-color: green; color: white;"/></fieldset></div>')
         self.wl('</form>')
 
     def parse_post(self):
@@ -64,7 +86,13 @@ class MyServer(BaseHTTPRequestHandler):
         return req
 
     def do_POST(self):
+        if self.path in ('/favicon.ico', ):
+            return
         print(self.path)
+        if self.path == '/action':
+            self.post_action()
+
+    def post_action(self):
         req = self.parse_post()
         print(req)
         self.send_response(200)
@@ -74,36 +102,47 @@ class MyServer(BaseHTTPRequestHandler):
         self.w('<meta charset="UTF-8">')
         self.w('<html><head><title>S@m Tools</title></head>')
         self.w('<body>')
-
         sfx = None
         dataconf = jiraconf()['projects']
         if b'projects' in req:
             for project in req[b'projects']:
                 actions = project + b'_actions'
                 filtre = project + b'_filter'
+                start = project + b'_start'
+                now = project + b'_now'
+                weeks = project + b'_weeks'
                 step = project + b'_step'
+
                 project = project.decode('utf-8')
                 filtre = unescape(req[filtre][0].decode('utf-8'))
+                start = unescape(req[start][0].decode('utf-8'))
+                now = now in req
+                weeks = int(req[weeks][0].decode('utf-8'))
                 step = int(req[step][0].decode('utf-8'))
+
                 self.w('<details open><summary>' + project + '</summary>')
+                self.w('<a href="/treemap?project=' + project + '" download="'+project+'_treemap.html">')
+                self.wl('Treemap file</a>')
                 if actions in req:
                     for action in req[actions]:
                         if action == b'Extract':
                             self.wl(filtre)
-                            extract_jira(project=project, start_date=dataconf[project]['start'], filtre=filtre)
+                            extract_jira(project=project, start_date=start, filtre=filtre)
                         elif action == b'Cumulative':
                             j = jira_cum(project=project, details=True, date_file=sfx,
-                                         weeks=dataconf[project]['weeks'], start_date=dataconf[project]['start'],
+                                         weeks=weeks, start_date=start,
                                          step=step,
-                                         chart_html=True)
+                                         chart_html=True, now=now)
                             self.wl(j, append=True)
                         elif action == b'Treemap':
-                            j = jira_treemap(project=project, date_file=sfx, html=True, chart_html=True)
-                            self.wl(j.split('<body>')[-1].split('</body>')[0] )
+                            j = jira_treemap(project=project, date_file=sfx, html=False)
+                            self.wl(j.chart_html().split('<body>')[-1].split('</body>')[0])
                         elif action == b'TreemapEpic':
                             for n, t, a in analysis_tree(project):
                                 self.w('<details><summary>' + n + str(a) + '</summary>')
                                 self.wl('' + t.split('<body>')[-1].split('</body>')[0] + '</details>')
+                        elif action == b'time_nb':
+                            self.wl(time_nb(project))
                 self.wl('</details>')
         if self.path == '/':
             self.index()

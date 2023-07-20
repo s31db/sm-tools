@@ -25,8 +25,9 @@ def to_hour(second: int, minus: int = None):
         return minus / -3600
 
 
-def add_super(date: str, ticket_super_super: str, epics_date: str, epics_no_rights: list[str],
+def add_super(date: str, ticket_super_super: str, epics_date: dict, epics_no_rights: list[str],
               ticket_super: str, ticket: str, us_date: str, _super: dict):
+    # if 'type' in _super['super'] and _super['super']['type'] == 'Epic' and ticket_super_super is not None and ticket_super_super not in epics_date[date]:
     if ticket_super_super is not None and ticket_super_super not in epics_date[date]:
         epics_no_rights[ticket_super_super] = ticket.key
     if SUPER in _super:
@@ -36,6 +37,7 @@ def add_super(date: str, ticket_super_super: str, epics_date: str, epics_no_righ
             us_date[date][ticket.key][SUPER_SUPER_NAME] = _super[SUPER]['default_name']
         else:
             super_super_id = ticket_super_super
+            # if 'type' in _super['super'] and _super['super']['type'] == 'Epic':
             us_date[date][ticket.key][SUPER_SUPER_STATUS] = epics_date[date][ticket_super_super]['status']
             us_date[date][ticket.key][SUPER_SUPER_NAME] = epics_date[date][ticket_super_super]['name']
         us_date[date][ticket.key][SUPER_SUPER] = super_super_id
@@ -48,18 +50,20 @@ def add_super(date: str, ticket_super_super: str, epics_date: str, epics_no_righ
         us_date[date][ticket.key][SUPER_STATUS] = ''
         us_date[date][ticket.key]['super.type'] = ''
     else:
-        # us_date[date][ticket.key][SUPER] = ticket_super[-1].split('[id=')[-1].split(',rapidViewId=')[0] + \
-        #                                      '_' + super_super_id
-        # us_date[date][ticket.key][SUPER_NAME] = ticket_super[-1].split(',name=')[-1].split(',startDate=')[0]
-        # us_date[date][ticket.key][SUPER_STATUS] = ''
-        us_date[date][ticket.key][SUPER] = ticket_super
-        if ticket_super in epics_date[date]:
-            us_date[date][ticket.key][SUPER_STATUS] = epics_date[date][ticket_super]['status']
-            us_date[date][ticket.key][SUPER_NAME] = epics_date[date][ticket_super]['name']
-            us_date[date][ticket.key]['super.type'] = epics_date[date][ticket_super]['type']
+        if 'type' in _super and _super['type'] == 'Sprint':
+            us_date[date][ticket.key][SUPER] = ticket_super[-1].split('[id=')[-1].split(',rapidViewId=')[0] + \
+                                                 '_' + super_super_id
+            us_date[date][ticket.key][SUPER_NAME] = ticket_super[-1].split(',name=')[-1].split(',startDate=')[0]
+            us_date[date][ticket.key][SUPER_STATUS] = ''
+        else:
+            us_date[date][ticket.key][SUPER] = ticket_super
+            if ticket_super in epics_date[date]:
+                us_date[date][ticket.key][SUPER_STATUS] = epics_date[date][ticket_super]['status']
+                us_date[date][ticket.key][SUPER_NAME] = epics_date[date][ticket_super]['name']
+                us_date[date][ticket.key]['super.type'] = epics_date[date][ticket_super]['type']
 
 
-def change_super(changelog_date, changelog_item, created, dates, epics_date, ticket, us_date, _super):
+def change_super(changelog_date, changelog_item, created, dates, epics_date: dict, ticket, us_date, _super):
     if changelog_item.field == _super['field_changelog']:
         changelog_item_from = getattr(changelog_item, 'from')
         if changelog_item_from is not None:
@@ -129,12 +133,12 @@ class JiraSM:
             self._jira = JIRA(server=self._url_server, token_auth=self._token_auth)
         return self
 
-    def search(self, jql_str: str, maxResults: int = 10000, fields: str = None, expand: str = None, trc: bool = False):
+    def search(self, jql_str: str, max_results: int = 10000, fields: str = None, expand: str = None, trc: bool = False):
         if trc or self._trc:
             print(jql_str)
             from urllib.parse import quote_plus
             print(self._url_server + '/issues/?jql='+quote_plus(jql_str))
-        return self._jira.search_issues(jql_str=jql_str, maxResults=maxResults, fields=fields, expand=expand)
+        return self._jira.search_issues(jql_str=jql_str, maxResults=max_results, fields=fields, expand=expand)
         # results = self._jira.search_issues(jql_str=jql_str, maxResults=maxResults, fields=fields, expand=expand)
         # for result in results:
         #     yield result
@@ -159,7 +163,7 @@ class JiraSM:
         parfait = 0
         surestimer = 0
         autre = 0
-        for task in self.search(jql_str=jql_str, maxResults=10000):
+        for task in self.search(jql_str=jql_str, max_results=10000):
             if task.fields.aggregatetimespent and task.fields.aggregatetimeoriginalestimate \
                     and task.fields.aggregatetimespent > task.fields.aggregatetimeoriginalestimate:
                 print(task.self, self.link_browse(task.key))
@@ -214,19 +218,21 @@ class JiraSM:
 
     def remaining(self, cleaner: bool = False):
         fields = 'summary, assignee, aggregatetimeestimate, status'
-        filters = {'remaining': 'and remainingEstimate > 0',
-                   'doneOrCancel': 'and (status = DONE or status = CANCELED)',
-                   'subtaskdone': 'and status in (Done, Closed) and issuetype in (ST-Dev, ST-Doc, ST-Tst)',
-                   'doneOrValidate': 'and (status = DONE or status = "To Validate")',
-                   'canceled': 'and status = CANCELED',
-                   'doneAndNotAssignee': 'and status = Done and assignee is EMPTY'
+        filters = {
+            'remaining': 'and remainingEstimate > 0',
+            'doneOrCancel': 'and (status = DONE or status = CANCELED)',
+            'subtaskdone': 'and status in (Done, Closed) and issuetype in (ST-Dev, ST-Doc, ST-Tst)',
+            # 'subtaskdone': 'and status in (Closed) and issuetype in (ST-Dev, ST-Doc, ST-Tst)',
+            'doneOrValidate': 'and (status = DONE or status = "To Validate")',
+            'canceled': 'and status = CANCELED',
+            'doneAndNotAssignee': 'and status = Done and assignee is EMPTY'
                    }
         now = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
         path_file = self._path_data + now.replace('-', '') + self._project + '_' + 'remaining' + '.txt'
         with open(path_file, 'w', encoding='utf-8') as f:
             for task in self.search(self._filter_project() + filters['subtaskdone'] +
                                     '' + filters['remaining'] + '  ORDER BY assignee ASC, remainingEstimate DESC',
-                                    maxResults=False, fields=fields, trc=True):
+                                    max_results=False, fields=fields, trc=True):
                 # print(task.key)
                 if task.fields.aggregatetimeestimate is not None:
                     print(task, task.fields.assignee if task.fields.assignee else 'Non assignée', task.fields.summary,
@@ -258,6 +264,33 @@ class JiraSM:
                   # attrgetter(sprint_field)(task.fields)[-1].split(',name=')[-1].split(',startDate=')[0],
                   task.fields.status)
 
+    def out_person(self):
+        fields = 'summary, assignee, aggregatetimeestimate, status'
+        filters = {'remaining': 'and remainingEstimate > 0',
+                   'doneOrCancel': 'and (status = DONE or status = CANCELED)',
+                   'subtaskdone': 'and status in (Done, Closed) and issuetype in (ST-Dev, ST-Doc, ST-Tst)',
+                   'doneOrValidate': 'and (status = DONE or status = "To Validate")',
+                   'progress': 'and status = "In Progress"',
+                   'canceled': 'and status = CANCELED',
+                   'doneAndNotAssignee': 'and status = Done and assignee is EMPTY',
+                   'out_team': 'AND assignee not in ("XXX", "YYY")'
+                   }
+        now = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+        path_file = self._path_data + now.replace('-', '') + self._project + '_' + 'out_team' + '.txt'
+        with open(path_file, 'w', encoding='utf-8') as f:
+            for task in self.search('project = ' + self._project + ' ' + filters['progress'] +
+                                    ' ' + filters['out_team'] + ' ORDER BY assignee ASC, remainingEstimate DESC',
+                                    max_results=False, fields=fields, trc=True):
+                # print(task.key)
+                if task.fields.aggregatetimeestimate is not None:
+                    print(task, task.fields.assignee if task.fields.assignee else 'Non assignée', task.fields.summary,
+                          self._url_server + "browse/" + task.key, task.fields.status,
+                          task.fields.aggregatetimeestimate / 3600, 'h')
+                    f.write(' '.join((str(task), str(task.fields.assignee) if task.fields.assignee else 'Not assigned',
+                                      task.fields.summary,
+                                      self._url_server + "browse/" + task.key, str(task.fields.status),
+                                      str(task.fields.aggregatetimeestimate / 3600) + 'h')) + '\n')
+
     def epic_ticket(self, dates: list, filtre: str = '', suffix: str = '', file: bool = True):
         epics_date = {}
         us_date = {}
@@ -272,7 +305,7 @@ class JiraSM:
         for ticket in self.search(jql_str=
                                   self._filter_project() + 'AND type in ("' + '", "'.join(self._type_base) + '") ' +
                                   filtre + ' ORDER BY key asc',
-                                  maxResults=False, expand='changelog', trc=False,
+                                  max_results=False, expand='changelog', trc=False,
                                   fields=', '.join(tickets_fields)):
 
             created = ticket.fields.created[:10]
@@ -281,6 +314,7 @@ class JiraSM:
                 ticket_super_super = attrgetter(self._super[SUPER]['field'])(ticket.fields)
             else:
                 ticket_super_super = None
+            # if 'type' in self._super and self._super['type'] == 'Epic':
             self._epic_tickets_by_date(created, dates, epics_date, epics_no_rights, now, ticket, ticket_super,
                                        ticket_super_super, us_date)
 
@@ -297,7 +331,7 @@ class JiraSM:
                 json.dump(us_date, f, indent=2)
         return us_date, path_file
 
-    def _epic_tickets_by_date(self, created, dates, epics_date, epics_no_rights, now, ticket, ticket_super,
+    def _epic_tickets_by_date(self, created, dates, epics_date: dict, epics_no_rights, now, ticket, ticket_super,
                               ticket_super_super, us_date):
         for date in dates:
             if created <= date <= now:
@@ -332,9 +366,9 @@ class JiraSM:
                         changelog_item.field, changelog_item.fieldtype, getattr(changelog_item, 'from')))
                     # changelog_item.fromString, changelog_item.to, changelog_item.toString
 
-    def _prepare_epics(self, dates, epics_changelogs, epics_date, epics_fields, now):
+    def _prepare_epics(self, dates, epics_changelogs, epics_date: dict, epics_fields, now):
         for epic in self.search(jql_str=self._filter_project() + ' AND type = Epic ORDER BY key asc',
-                                maxResults=3000, fields=', '.join(epics_fields), expand='changelog'):
+                                max_results=3000, fields=', '.join(epics_fields), expand='changelog'):
 
             created = epic.fields.created[:10]
             for date in dates:
@@ -392,3 +426,20 @@ class JiraSM:
         with open(path_file, 'w', encoding='utf-8') as f:
             json.dump(s, f, indent=2)
         return s, path_file
+
+    def workload(self, start_date: str, file: bool = True):
+        workloads = []
+        jql_str = 'worklogDate>=' + start_date + ' ORDER BY Rank ASC'
+        for task in self.search(jql_str=jql_str, fields='worklog, summary'):
+            # print(task.key)
+            for work in task.fields.worklog.worklogs:
+                workloads.append({'author': str(work.author).strip(), 'day': work.started[:10],
+                                  'timeSpentSecond': work.timeSpentSeconds, 'key': task.key,
+                                  'project': task.key.split('-')[0]})
+        # print(workloads)
+        now = datetime.now().strftime('%Y%m%d')
+        path_file = self._path_data + 'workloads' + start_date.replace('-', '') + '_' + now + '.json'
+        if file:
+            with open(path_file, 'w', encoding='utf-8') as f:
+                json.dump(workloads, f, indent=2)
+        return workloads

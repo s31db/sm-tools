@@ -4,12 +4,13 @@ from time import sleep
 
 
 def capture(prefix: str, pages: int):
-    location = []
+    location = [
+        pyautogui.locateOnScreen('tmpagile/img.png'),
+        pyautogui.locateOnScreen('tmpagile/img_1.png'),
+        pyautogui.locateOnScreen('tmpagile/img_2.png'),
+    ]
 
-    location.append(pyautogui.locateOnScreen('tmpagile/img.png'))
-    location.append(pyautogui.locateOnScreen('tmpagile/img_1.png'))
-    location.append(pyautogui.locateOnScreen('tmpagile/img_2.png'))
-    #print(location)
+    # print(location)
     keyboard = Controller()
     sleep(2)
     # prefix = 'tmpagile/dor/dor_'

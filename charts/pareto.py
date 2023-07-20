@@ -104,8 +104,8 @@ class Pareto(Chart):
         x_pos_percent = nb + x_pos_percent if nb > 0 else 0
         # print(nb, percent, nearly_previous, nearly)
         plt.plot([x_pos_percent, x_pos_percent], [0, percent], linestyle=linestyle, lw=lw, color=color)
-        plt.plot([x_pos_percent, len(self._values.keys()) - self._margin], [percent, percent], linestyle=linestyle, lw=lw,
-                 color=color)
+        plt.plot([x_pos_percent, len(self._values.keys()) - self._margin], [percent, percent],
+                 linestyle=linestyle, lw=lw, color=color)
         return self
 
 

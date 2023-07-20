@@ -1,0 +1,7 @@
+{
+	"out_project_2023-06":{
+		"John Doe": {"team": "T1", "dates": {},
+			"other_projects": {"Project X":  {"dates": {"2023-06-26": 1, "2023-06-27": 0.5}}}},
+		"Jane Doe": {"team": "T2", "dates": {"2023-06-01": 1, "2023-06-02": 1}}
+	}
+}

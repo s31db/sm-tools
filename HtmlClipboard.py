@@ -257,12 +257,12 @@ class HtmlClipboard:
         Join all our bits of information into a string formatted as per the HTML format specs.
         """
         # How long is the prefix going to be?
-        dummyPrefix = self.MARKER_BLOCK_OUTPUT % (0, 0, 0, 0, 0, 0, source)
-        lenPrefix = len(dummyPrefix)
+        dummy_prefix = self.MARKER_BLOCK_OUTPUT % (0, 0, 0, 0, 0, 0, source)
+        len_prefix = len(dummy_prefix)
 
-        prefix = self.MARKER_BLOCK_OUTPUT % (lenPrefix, len(html) + lenPrefix,
-                                             fragment_start + lenPrefix, fragment_end + lenPrefix,
-                                             selection_start + lenPrefix, selection_end + lenPrefix,
+        prefix = self.MARKER_BLOCK_OUTPUT % (len_prefix, len(html) + len_prefix,
+                                             fragment_start + len_prefix, fragment_end + len_prefix,
+                                             selection_start + len_prefix, selection_end + len_prefix,
                                              source)
         return prefix + html
 

@@ -5,11 +5,11 @@ from math import pi
 from chart import Chart
 
 
-def calc(l):
-    if l.values == 'First':
-        return l
+def calc(data):
+    if data.values == 'First':
+        return data
     r = []
-    for i in l.values:
+    for i in data.values:
         r.append((3 * i[0] + 2 * i[1] + i[2]) / (i[0] + i[1] + i[2]))
     return r
 
@@ -57,10 +57,10 @@ class Radar(Chart):
 
         # number of variable
         categories = list(df)[1:]
-        N = len(categories)
+        n_categories = len(categories)
 
         # What will be the angle of each axis in the plot? (we divide the plot / number of variable)
-        angles = [n / float(N) * 2 * pi for n in range(N)]
+        angles = [n / float(n_categories) * 2 * pi for n in range(n_categories)]
         angles += angles[:1]
 
         # Initialise the spider plot
@@ -100,7 +100,7 @@ class Radar(Chart):
         plt.legend(loc='upper right', bbox_to_anchor=(0.1, 0.1))
         return self
 
-    def save(self, filepath: str = 'tmp/radar_health_check.png', _format:str = 'png'):
+    def save(self, filepath: str = 'tmp/radar_health_check.png', _format: str = 'png'):
         # bytes_io_img = BytesIO()
         # plt.savefig(bytes_io_img, format='png', dpi=50)
         # bytes_io_img.seek(0)
