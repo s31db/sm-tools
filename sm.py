@@ -2,6 +2,7 @@ from charts.cumulative import Cumulative
 from charts.treemap import Treemap
 from charts.scatterplot import Scatter
 from charts.histogram import Histogram
+from charts.burndown import Burndown
 from helpers.prepare_date_sprint import sprint_dates
 import json
 from config import config
@@ -10,6 +11,7 @@ from prepare_data import tree
 import yaml
 from yaml.loader import SafeLoader
 from atlassian.jiraSM import JiraSM
+from atlassian.tempo_jira import Tempo
 
 Y_M_D = '%Y-%m-%d'
 
@@ -64,8 +66,9 @@ def prepare_data(project: str, suffix: str, date_file: str = None):
     return data_conf, datas_sm
 
 
-def dates(start_date: str = '2023-01-09', weeks: int = 9, now: bool = False, limit: str = None):
-    return list(sprint_dates(start_date, weeks, now=now, limit=limit))
+def dates(start_date: str = '2023-01-09', weeks: int = 9, now: bool = False, limit: str = None,
+          end_date: str = None) -> list[str]:
+    return list(sprint_dates(start_date, weeks, now=now, limit=limit, end_date=end_date))
 
 
 def extract_jira(project: str, start_date: str, filtre: str = '', suffix: str = ''):
@@ -91,15 +94,20 @@ def remaining(project: str):
     JiraSM(project=project, **data_conf['projects'][project]).conn().remaining()
 
 
-def workload(project: str, start_date: str):
+def workload(project: str, start_date: str, date_to: str):
     data_conf = jiraconf()
-    JiraSM(project=project, **data_conf['projects'][project]).conn().workload(start_date=start_date)
+    with JiraSM(project=project, **data_conf['projects'][project]).conn() as conn:
+        conn.workload(start_date=start_date, date_to=date_to)
 
 
-def workload_analyse(project: str, date_file: str = None, start_date: str = None) -> [dict, dict]:
+def fmt_date_file(date: str):
+    return date.replace('-', '')
+
+
+def workload_analyse(project: str, start_date: str, date_to: str, date_file: str = None) -> [dict, dict]:
     data_conf = jiraconf()
     now = datefile(date_file)
-    ends = 'workloads' + start_date.replace('-', '') + '_' + now.replace('-', '') + '.json'
+    ends = 'workloads' + fmt_date_file(start_date) + '_' + fmt_date_file(date_to) + '_' + fmt_date_file(now) + '.json'
 
     print(data_conf['Common']['path_data'] + ends)
     with open(data_conf['Common']['path_data'] + ends, 'r', encoding='utf-8') as fp:
@@ -172,10 +180,11 @@ def workload_analyse(project: str, date_file: str = None, start_date: str = None
     return works_project, work
 
 
-def analyse_workload(start_date: str, date_file: str = None):
+def analyse_workload(start_date: str, date_to: str, date_file: str = None):
     data_conf = jiraconf()
     now = datefile(date_file)
-    ends = 'workloads' + start_date.replace('-', '') + '_' + now.replace('-', '') + '.json'
+    ends = 'workloads' + fmt_date_file(start_date) + '_' + fmt_date_file(date_to) + '_' + now.replace('-', '') + '.json'
+
     with open(data_conf['Common']['path_data'] + 'teams.json', 'r', encoding='utf-8') as fp:
         datas_sm = json.load(fp)
     with open(data_conf['Common']['path_data'] + 'calc_personnes_' + ends, 'r', encoding='utf-8') as f:
@@ -229,6 +238,166 @@ def analyse_workload(start_date: str, date_file: str = None):
                 print(team, month, projects, time_days(project_info['timeSpentSecond']))
         else:
             print(team, month, 'no works')
+
+
+def analyse_workload_planned(start_date: str, date_to: str, date_file: str = None,
+                             limit_today: bool = False):
+    data_conf = jiraconf()
+    now = datefile(date_file)
+    ends = fmt_date_file(start_date) + '_' + fmt_date_file(date_to) + '_' + now.replace('-', '') + '.json'
+    ds = dates(start_date=start_date, weeks=0, now=limit_today, end_date=date_to if not limit_today else None)
+    sum_project = {'all': {}}
+    sum_project_person = {'all': {}}
+    sum_project_planned = {'all': {}}
+    d_person = {}
+
+    with open(data_conf['Common']['path_data'] + 'calc_personnes_workloads' + ends, 'r', encoding='utf-8') as f:
+        workloads = json.load(f)
+
+    with open(data_conf['Common']['path_data'] + 'plan' + ends, 'r', encoding='utf-8') as f:
+        planneds = json.load(f)
+
+    with open(data_conf['Common']['path_data'] + 'teams' + ends, 'r', encoding='utf-8') as f:
+        teams_members = json.load(f)
+
+    members_used = []
+    for team, members in teams_members.items():
+        for person, person_infos in members.items():
+            person_id = person.split('@')[0].lower()
+            if person_id not in members_used:
+                members_used.append(person_id)
+                person_name = ' '.join([p[0].upper() + p[1:] for p in person.split('@')[0].split('.')])
+                if 'dateToANSI' not in person_infos or start_date <= person_infos['dateToANSI']:
+                    d_person[person_id] = {'name': person_name, 'days': {}}
+                    sum_project_person[person_id] = {'all': {}}
+
+                for d in ds:
+                    if 'dateToANSI' in person_infos and d > person_infos['dateToANSI']:
+                        break
+                    d_person[person_id]['days'][d] = {}
+                    month = d[:7]
+                    if person_id in workloads:
+                        if d in workloads[person_id]:
+                            d_person[person_id]['days'][d]['works'] = {}
+                            for key, v in workloads[person_id][d]['projects'].items():
+                                d_person[person_id]['days'][d]['works'][key] = v['timeSpentSecond']
+
+                            if month not in sum_project:
+                                sum_project[month] = {}
+                            if month not in sum_project_person[person_id]:
+                                sum_project_person[person_id][month] = {'all': {}}
+                            for project, projects_infos in workloads[person_id][d]['projects'].items():
+
+                                if project in sum_project[month]:
+                                    sum_project[month][project]['timeSpentSecond'] += projects_infos['timeSpentSecond']
+                                else:
+                                    sum_project[month][project] = {'timeSpentSecond': projects_infos['timeSpentSecond']}
+
+                                if project in sum_project['all']:
+                                    sum_project['all'][project]['timeSpentSecond'] += projects_infos['timeSpentSecond']
+                                else:
+                                    sum_project['all'][project] = {'timeSpentSecond': projects_infos['timeSpentSecond']}
+
+                                if project in sum_project_person[person_id][month]:
+                                    sum_project_person[person_id][month][project]['timeSpentSecond'] += \
+                                        projects_infos['timeSpentSecond']
+                                else:
+                                    sum_project_person[person_id][month][project] = {
+                                        'timeSpentSecond': projects_infos['timeSpentSecond']}
+
+                                if project in sum_project_person[person_id]['all']:
+                                    sum_project_person[person_id]['all'][project]['timeSpentSecond'] += \
+                                        projects_infos['timeSpentSecond']
+                                else:
+                                    sum_project_person[person_id]['all'][project] = {
+                                        'timeSpentSecond': projects_infos['timeSpentSecond']}
+
+                    if person in planneds and d in planneds[person]:
+                        d_person[person_id]['days'][d]['plan'] = {}
+                        for project_key, projects_infos in planneds[person][d].items():
+                            project = projects_infos['summary']
+                            seconds = projects_infos['secondsPerDay']
+                            d_person[person_id]['days'][d]['plan'][project] = seconds
+
+                            if d[:7] not in sum_project_planned:
+                                sum_project_planned[month] = {}
+
+                            if project in sum_project_planned[month]:
+                                sum_project_planned[month][project]['timeSpentSecond'] += seconds
+                            else:
+                                sum_project_planned[month][project] = {'timeSpentSecond': seconds}
+
+                            if project in sum_project_planned['all']:
+                                sum_project_planned['all'][project]['timeSpentSecond'] += seconds
+                            else:
+                                sum_project_planned['all'][project] = {'timeSpentSecond': seconds}
+
+    for p_infos in d_person.values():
+        print(p_infos['name'])
+        for d, d_infos in p_infos['days'].items():
+            print('\t', d, end=' ')
+            if 'works' in d_infos:
+                for key, v in d_infos['works'].items():
+                    print(key, time_days(v), end=' ')
+                print()
+            else:
+                print('\tNo works on Jira Logs !')
+            if 'plan' in d_infos:
+                for key, v in d_infos['plan'].items():
+                    print('\t\t\t Plan ', key, time_days(v))
+            else:
+                print('\t\t\t No plan !')
+
+    print('--------------LOG---------------')
+    for d, projects in sum_project.items():
+        for project, project_info in projects.items():
+            print('Log', d, project, time_days(project_info['timeSpentSecond']))
+
+    print('--------------Plan---------------')
+    for d, projects in sum_project_planned.items():
+        for project, project_info in projects.items():
+            print('Plan', d, project, time_days(project_info['timeSpentSecond']))
+
+    print('--------------Log by Person---------------')
+    for p, sum_projects in sum_project_person.items():
+        for d, projects in sum_projects.items():
+            for project, project_info in projects.items():
+                if 'timeSpentSecond' in project_info:
+                    print('Log person', p, d, project, time_days(project_info['timeSpentSecond']))
+
+    return ds, d_person, sum_project, sum_project_planned, sum_project_person
+
+
+def worklog_plan_html(project: str, date_file: str = None,
+                      start_date:str = '2023-08-01', date_to:str = '2023-10-01',  limit_today: bool = False):
+    workload(project=project, start_date=start_date, date_to=date_to)
+    workload_analyse(project=project, start_date=start_date, date_to=date_to)
+
+    planned(project=project, start_date=start_date, date_to=date_to)
+    ds, d_person, sum_project, sum_project_planned, sum_project_person = analyse_workload_planned(
+        start_date=start_date, date_to=date_to, date_file=date_file, limit_today=limit_today)
+    for p_infos in d_person.values():
+        yield (f"<details open><summary>{p_infos['name']} <button class='cp' "
+               f"id='cpb_{p_infos['name'].replace(' ', '_')}'")
+        yield 'style="padding: 8px 8px; background-color: transparent; border: none; cursor: pointer;">'
+        yield '&#x1F4CB;</button></summary>'
+        yield f"<div id='div_cpb_{p_infos['name'].replace(' ', '_')}'>"
+        for d, d_infos in p_infos['days'].items():
+            yield '{0} :'.format(d)
+            if 'works' in d_infos:
+                for key, v in d_infos['works'].items():
+                    yield f' {key} {time_days(v)}'
+            else:
+                yield ' No works on Jira Logs !'
+            if 'plan' in d_infos:
+                yield ' / Plan :'
+                for key, v in d_infos['plan'].items():
+                    yield f' {key} {time_days(v)}'
+            else:
+                yield ' / No plan on Tempo !'
+            yield '<br/>'
+        yield '</div>'
+        yield '</details>'
 
 
 def out_person(project: str):
@@ -290,7 +459,7 @@ def float_to_int(value: float):
     return value
 
 
-def weeks_of_mounth(da):
+def weeks_of_mounth(da: str):
     date = datetime.strptime(da, Y_M_D)
     return str(date.isocalendar()[1])
 
@@ -315,9 +484,9 @@ def time_nb(project: str, suffix: str = '', date_file: str = None):
                                 estimate = float_to_int(datas_sm[da][ticket]['estimate']) if 'estimate' in \
                                                                                              datas_sm[da][ticket] else 1
                                 dates_end[da][ticket] = {'tps': (datetime.strptime(da, Y_M_D) - datetime.strptime(
-                                    st_da, Y_M_D)).days, 'tps_t': dates.index(da)-dates.index(st_da),
+                                    st_da, Y_M_D)).days, 'tps_t': dates_l.index(da)-dates_l.index(st_da),
                                                          'estimate': estimate,
-                                                         'date': da[2:7] +'-' + weeks_of_mounth(da)}
+                                                         'date': da[2:7] + '-' + weeks_of_mounth(da)}
                                 break
                     tickets.append(ticket)
     print(dates_end)
@@ -345,7 +514,7 @@ def time_nb(project: str, suffix: str = '', date_file: str = None):
     return s.chart_html()
 
 
-def datefile(date_file):
+def datefile(date_file) -> str:
     if date_file:
         now = date_file
     else:
@@ -417,8 +586,10 @@ def time_days(tim: int | None):
         m = 60
         h = 60 * m
         d = 8 * h
+        w = 5 * d
         ti = ' '
-        ti += timestr(tim, d, None, 'days')
+        ti += timestr(tim, w, None, 'weeks')
+        ti += timestr(tim, d, w, 'days')
         ti += timestr(tim, h, d, 'hours')
         ti += timestr(tim, m, h, 'minutes')
         return ti
@@ -446,3 +617,50 @@ def analysis_tree(project: str, date_file: str = None):
             epic == 'No Epics' else ' <b>' + time(n[epic]['aggregatetimeestimate']) + '</b> / ' + \
                                     time(n[epic]['aggregatetimeoriginalestimate']) + ' --> Spent ' + \
                                     time(n[epic]['aggregatetimespent'])
+
+
+def re_tree(project: str, start_date: str, filtre: str = '', suffix: str = ''):
+    data_conf = jiraconf()
+    d = dates(start_date, 128)
+    JiraSM(project=project, **data_conf['projects'][project]).conn().tree_jira(list(d), filtre=filtre, suffix=suffix)
+
+
+def burndown(project: str, sprint: str = None, suffix: str = '', date_file: str = None, filtre: str = ''):
+    data_conf = jiraconf()
+    conf = data_conf['projects'][project]
+    conf['type_base'] = None
+    with JiraSM(project=project, **conf).conn() as conn:
+        if sprint:
+            pass
+        else:
+            sprint_id, sprint_infos = conn.sprint_actif()
+            sprint = sprint_infos['name']
+            filtre = ' and sprint={0} '.format(sprint_id)
+        d = [sprint_infos['start_date']]
+        print(sprint_infos, d)
+        d += dates(sprint_infos['start_date'][:10], 0, now=False, end_date=sprint_infos['end_date'][:10])
+        print(sprint_infos, d)
+        datas_sm = conn.epic_ticket(list(d), filtre=filtre, suffix=suffix)[0]
+    # After extract
+    now = datefile(date_file)
+    datas_sm = prepare_data(project=project, suffix=suffix, date_file=now)[1]
+
+    # print(t)
+    sums = []
+    for dd in d:
+        if dd <= now:
+            sum = 0
+            for ticket in datas_sm[dd].values():
+                if 'timeestimate' in ticket and ticket['timeestimate'] is not None:
+                    sum += int(ticket['timeestimate'])
+            sums.append(sum // 3600)
+    b = Burndown(title=project + ' ' + sprint, start_is_max=True, indicators=False).dates(
+        ['Start'] + [dd[5:7] + '/' + dd[8:10] for dd in d[1:]]).values(sums).build()
+    # b.show()
+    return b.chart_html()
+
+
+def planned(project: str, start_date: str, date_to: str):
+    data_conf = jiraconf()
+    t = Tempo(project=project, **data_conf['projects'][project]).conn()
+    t.planned(start_date=start_date, date_to=date_to)

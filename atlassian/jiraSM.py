@@ -27,19 +27,33 @@ def to_hour(second: int, minus: int = None):
 
 def add_super(date: str, ticket_super_super: str, epics_date: dict, epics_no_rights: list[str],
               ticket_super: str, ticket: str, us_date: str, _super: dict):
-    # if 'type' in _super['super'] and _super['super']['type'] == 'Epic' and ticket_super_super is not None and ticket_super_super not in epics_date[date]:
-    if ticket_super_super is not None and ticket_super_super not in epics_date[date]:
+    # if 'type' in _super['super'] and _super['super']['type'] == 'Epic' and
+    # ticket_super_super is not None and ticket_super_super not in epics_date[date]:
+    if ticket_super_super is not None and (
+            'type' not in _super['super'] or _super['super']['type'] == 'Epic') \
+            and ticket_super_super not in epics_date[date]:
         epics_no_rights[ticket_super_super] = ticket.key
     if SUPER in _super:
-        if ticket_super_super is None or ticket_super_super not in epics_date[date]:
+        if ticket_super_super is None or (
+                ('type' not in _super['super'] or _super['super']['type'] == 'Epic')
+                and ticket_super_super not in epics_date[date]):
             super_super_id = '-2'
             us_date[date][ticket.key][SUPER_SUPER_STATUS] = ''
             us_date[date][ticket.key][SUPER_SUPER_NAME] = _super[SUPER]['default_name']
+        elif 'type' in _super['super'] and _super['super']['type'] == 'Sprint':
+            super_super_id = ticket_super_super[-1].split('[id=')[-1].split(',rapidViewId=')[0]
+            # if 'type' in _super['super'] and _super['super']['type'] == 'Sprint':
+            # us_date[date][ticket.key][SUPER_SUPER_NAME] = us_date[date][ticket.key]['sprints'][-1]
+            us_date[date][ticket.key][SUPER_SUPER_STATUS] = ticket_super_super[-1].split(
+                ',state=')[-1].split(',name=')[0]
+            us_date[date][ticket.key][SUPER_SUPER_NAME] = ticket_super_super[-1].split(
+                ',name=')[-1].split(',startDate=')[0]
         else:
             super_super_id = ticket_super_super
             # if 'type' in _super['super'] and _super['super']['type'] == 'Epic':
             us_date[date][ticket.key][SUPER_SUPER_STATUS] = epics_date[date][ticket_super_super]['status']
             us_date[date][ticket.key][SUPER_SUPER_NAME] = epics_date[date][ticket_super_super]['name']
+
         us_date[date][ticket.key][SUPER_SUPER] = super_super_id
     if ticket_super is None:
         if SUPER in _super:
@@ -55,12 +69,15 @@ def add_super(date: str, ticket_super_super: str, epics_date: dict, epics_no_rig
                                                  '_' + super_super_id
             us_date[date][ticket.key][SUPER_NAME] = ticket_super[-1].split(',name=')[-1].split(',startDate=')[0]
             us_date[date][ticket.key][SUPER_STATUS] = ''
+            us_date[date][ticket.key]['super.type'] = 'Sprint'
         else:
             us_date[date][ticket.key][SUPER] = ticket_super
             if ticket_super in epics_date[date]:
                 us_date[date][ticket.key][SUPER_STATUS] = epics_date[date][ticket_super]['status']
                 us_date[date][ticket.key][SUPER_NAME] = epics_date[date][ticket_super]['name']
                 us_date[date][ticket.key]['super.type'] = epics_date[date][ticket_super]['type']
+        if 'super' in _super and 'type' in _super['super'] and _super['super']['type'] == 'Sprint':
+            us_date[date][ticket.key][SUPER] = ticket_super + '_' + super_super_id
 
 
 def change_super(changelog_date, changelog_item, created, dates, epics_date: dict, ticket, us_date, _super):
@@ -110,7 +127,7 @@ def change_super(changelog_date, changelog_item, created, dates, epics_date: dic
 
 
 class JiraSM:
-    _jira: JIRA
+    _jira: JIRA = None
     _project: str
     _url_server: str
     _fields_change_ignored: list[str]
@@ -132,6 +149,13 @@ class JiraSM:
         else:
             self._jira = JIRA(server=self._url_server, token_auth=self._token_auth)
         return self
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self._jira is not None:
+            self._jira.close()
 
     def search(self, jql_str: str, max_results: int = 10000, fields: str = None, expand: str = None, trc: bool = False):
         if trc or self._trc:
@@ -291,7 +315,7 @@ class JiraSM:
                                       self._url_server + "browse/" + task.key, str(task.fields.status),
                                       str(task.fields.aggregatetimeestimate / 3600) + 'h')) + '\n')
 
-    def epic_ticket(self, dates: list, filtre: str = '', suffix: str = '', file: bool = True):
+    def epic_ticket(self, dates: list, filtre: str = '', suffix: str = '', file: bool = True) -> [dict, str]:
         epics_date = {}
         us_date = {}
         now = datetime.now().strftime(Y_M_D)
@@ -302,8 +326,9 @@ class JiraSM:
         self._prepare_epics(dates, epics_changelogs, epics_date, epics_fields, now)
 
         epics_no_rights = {}
+        type_tickets = 'AND type in ("' + '", "'.join(self._type_base) + '") ' if self._type_base else ''
         for ticket in self.search(jql_str=
-                                  self._filter_project() + 'AND type in ("' + '", "'.join(self._type_base) + '") ' +
+                                  self._filter_project() + type_tickets +
                                   filtre + ' ORDER BY key asc',
                                   max_results=False, expand='changelog', trc=False,
                                   fields=', '.join(tickets_fields)):
@@ -368,7 +393,7 @@ class JiraSM:
 
     def _prepare_epics(self, dates, epics_changelogs, epics_date: dict, epics_fields, now):
         for epic in self.search(jql_str=self._filter_project() + ' AND type = Epic ORDER BY key asc',
-                                max_results=3000, fields=', '.join(epics_fields), expand='changelog'):
+                                max_results=False, fields=', '.join(epics_fields), expand='changelog'):
 
             created = epic.fields.created[:10]
             for date in dates:
@@ -389,7 +414,7 @@ class JiraSM:
                                 epics_date[date][epic.key][epics_changelogs[field]] = changelog_item.fromString
                                 epics_date[date][epic.key]['update'][epics_changelogs[field]] = changelog_date
 
-    def _prepare_epic_ticket(self, dates, epics_date, now, us_date):
+    def _prepare_epic_ticket(self, dates: list, epics_date: dict, now: str, us_date: dict):
         for date in dates:
             if date <= now:
                 epics_date[date] = {}
@@ -413,33 +438,60 @@ class JiraSM:
                 tickets_fields.append(value['field'].split('.')[0])
         return epics_changelogs, epics_fields, tickets_changelogs, tickets_fields
 
-    def sprints(self):
+    def sprints(self, file: bool = True):
         s = {}
         for sprint in self._jira.sprints(self._board_id):
             if sprint.state == 'future':
                 s[sprint.id] = {'name': sprint.name, 'state': sprint.state}
             else:
-                s[sprint.id] = {'start_date': sprint.activatedDate[:10], 'end_date': sprint.completeDate[:10],
+                # s[sprint.id] = {'start_date': sprint.activatedDate[:10], 'end_date': sprint.completeDate[:10],
+                s[sprint.id] = {'start_date': sprint.activatedDate[:10], 'end_date': sprint.endDate[:10],
                                 'name': sprint.name, 'state': sprint.state}
         now = datetime.now().strftime('%Y-%m-%d')
-        path_file = self._path_data + now.replace('-', '') + self._project + '_' + 'infos_sprints' + '.json'
-        with open(path_file, 'w', encoding='utf-8') as f:
-            json.dump(s, f, indent=2)
-        return s, path_file
+        if file:
+            path_file = self._path_data + now.replace('-', '') + self._project + '_' + 'infos_sprints' + '.json'
+            with open(path_file, 'w', encoding='utf-8') as f:
+                json.dump(s, f, indent=2)
+        return s
 
-    def workload(self, start_date: str, file: bool = True):
+    def sprint_actif(self):
+        s = {}
+        for sprint in self._jira.sprints(self._board_id):
+            if sprint.state != 'future':
+                sprint_id = sprint.id
+                sprint_infos = {'start_date': sprint.activatedDate, 'end_date': sprint.endDate,
+                                'name': sprint.name, 'state': sprint.state}
+        return sprint_id, sprint_infos
+
+    def workload(self, start_date: str, date_to: str, file: bool = True):
         workloads = []
-        jql_str = 'worklogDate>=' + start_date + ' ORDER BY Rank ASC'
+        jql_str = 'worklogDate>=' + start_date + ' and  worklogDate <=' + date_to + ' ORDER BY Rank ASC'
         for task in self.search(jql_str=jql_str, fields='worklog, summary'):
             # print(task.key)
             for work in task.fields.worklog.worklogs:
-                workloads.append({'author': str(work.author).strip(), 'day': work.started[:10],
+                # workloads.append({'author': str(work.author).strip(), 'day': work.started[:10],
+                workloads.append({'author': str(work.author).strip().replace(' ', '.').lower(),
+                                  'day': work.started[:10],
                                   'timeSpentSecond': work.timeSpentSeconds, 'key': task.key,
                                   'project': task.key.split('-')[0]})
         # print(workloads)
         now = datetime.now().strftime('%Y%m%d')
-        path_file = self._path_data + 'workloads' + start_date.replace('-', '') + '_' + now + '.json'
+        path_file = self._path_data + 'workloads' + start_date.replace('-', '') + '_' + date_to.replace(
+            '-', '') + '_' + now + '.json'
         if file:
             with open(path_file, 'w', encoding='utf-8') as f:
                 json.dump(workloads, f, indent=2)
         return workloads
+
+    def tree_jira(self, dates: list, filtre: str = '', suffix: str = '', file: bool = True):
+        us_date = self.epic_ticket(dates=dates, filtre=filtre, suffix=suffix, file=False)[0]
+        tickets_fields = ['parent', 'created']
+        for ticket in self.search(jql_str=
+                                  self._filter_project() +
+                                  filtre + ' ORDER BY key asc',
+                                  max_results=False, expand='changelog', trc=False,
+                                  fields=', '.join(tickets_fields)):
+
+            created = ticket.fields.created[:10]
+            ticket_super = attrgetter('parent')(ticket.fields)
+            print(created, ticket_super)

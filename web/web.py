@@ -1,7 +1,7 @@
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import parse_qs
 from HtmlClipboard import put_html
-from sm import jiraconf, jira_cum, jira_treemap, extract_jira, analysis_tree, time_nb
+from sm import jiraconf, jira_cum, jira_treemap, extract_jira, analysis_tree, time_nb, burndown, worklog_plan_html
 from html import escape, unescape
 
 
@@ -20,7 +20,6 @@ class MyServer(BaseHTTPRequestHandler):
 
         elif self.path.startswith('/treemap'):
             sfx = None
-            print('tt')
             self.send_header('Content-type', 'text/html')
             self.end_headers()
             j = jira_treemap(project=self.path.split('project=')[1], date_file=sfx, html=False).chart_html()
@@ -52,25 +51,30 @@ class MyServer(BaseHTTPRequestHandler):
         self.w('<fieldset><legend>Project</legend>')
         dataconf = jiraconf()
         for key, conf in dataconf['projects'].items():
-            self.wl('<input name="projects" type="checkbox" value="'+key+'">'+key+'</input>')
-            self.w("<label for='" + key + "_filter'>Filtre : </label>")
-            self.wl("<input name='" + key + "_filter' id='" + key + "_filter' type='text' value='" +
-                    escape(conf['filter']) + "' size='200'/>")
-            self.w("<label for='" + key + "_start'>From : </label>")
-            self.w("<input name='" + key + "_start' id='" + key + "_start' type='text' value='" +
-                   escape(conf['start']) + "' size='10'/>")
-            self.w(" <label for='" + key + "_weeks'>Weeks : </label>")
-            self.w("<input name='" + key + "_weeks' id='" + key + "_weeks' type='text' value='" +
+            self.wl(f'<input name="projects" type="checkbox" value="{key}">{key}</input>')
+            self.w(f"<label for='{key}_filter'>Filtre : </label>")
+            self.wl(f"<input name='{key}_filter' id='{key}_filter' "
+                    f"type='text' value='{escape(conf['filter'])}' size='200'/>")
+            self.w(f"<label for='{key}_start'>From : </label>")
+            self.w(f"<input name='{key}_start' id='{key}_start' type='text' "
+                   f"value='{escape(conf['start'])}' size='10'/>")
+            self.w(f" <label for='{key}_start'>To : </label>")
+            date_end = escape(conf['end']) if 'end' in conf else ''
+            self.w(f"<input name='{key}_end' id='{key}_end' type='text' value='{date_end}' size='10'/>")
+            self.w(f" <label for='{key}_weeks'>Weeks : </label>")
+            self.w(f"<input name='{key}_weeks' id='{key}_weeks' type='text' value='" +
                    str(conf['weeks']) + "' size='2'/>")
-            self.w(" <label for='" + key + "_now'>Now : </label>")
-            self.wl("<input type='checkbox' name='" + key + "_now' id='" + key +
-                    "_now' type='text' value='True' checked/>")
-            self.w("<label for='" + key + "_step'>Step : </label>")
-            self.wl("<input name='" + key + "_step' id='" + key + "_step' type='text' value='" + '0' + "' size='2'/>")
+            self.w(f" <label for='{key}_step'>Step : </label>")
+            self.w(f"<input name='{key}_step' id='{key}_step' type='text' value='" + '0' + "' size='2'/>")
+            self.w(f" <label for='{key}_now'>Now : </label>")
+            self.w(f"<input type='checkbox' name='{key}_now' id='{key}_now' type='text' value='True' checked/>")
             self.w('<fieldset><legend>Action</legend>')
-            for key_action in actions.keys():
-                self.wl('<input name="'+key+'_actions" type="checkbox" value="'+key_action+'">' + key_action +
-                        '</input>')
+            if 'actions' in conf:
+                for key_action in conf['actions']:
+                    self.wl(f'<input name="{key}_actions" type="checkbox" value="{key_action}">{key_action}</input>')
+            else:
+                for key_action in actions.keys():
+                    self.wl(f'<input name="{key}_actions" type="checkbox" value="{key_action}">{key_action}</input>')
             self.wl('</fieldset>')
         self.wl('</fieldset>')
         self.w('<div style="position: fixed; left:50%;top:5px; background-color: rgb(255 255 255 / 0.8);">')
@@ -88,20 +92,38 @@ class MyServer(BaseHTTPRequestHandler):
     def do_POST(self):
         if self.path in ('/favicon.ico', ):
             return
-        print(self.path)
+        # print(self.path)
         if self.path == '/action':
             self.post_action()
 
     def post_action(self):
         req = self.parse_post()
-        print(req)
+        # print(req)
         self.send_response(200)
         self.send_header('Content-type', 'text/html')
         self.end_headers()
-        self.w('<!DOCTYPE html/>')
+        self.w('<!DOCTYPE html>')
         self.w('<meta charset="UTF-8">')
-        self.w('<html><head><title>S@m Tools</title></head>')
+        self.w('<html><head><title>S@m Tools</title>')
+
+        self.w("<script>")
+        self.w("document.addEventListener('DOMContentLoaded', () => {")
+        self.w("document.querySelectorAll('.cp').forEach((btn)=>{btn.addEventListener('click',()=>{const bnId= btn.id;")
+        self.w("const e=document.getElementById('div_'+bnId), r=document.createRange(); r.selectNode(e);")
+        self.w("const t=window.getSelection(); t.removeAllRanges(), t.addRange(r), ")
+        self.w("document.execCommand('copy'), t.removeAllRanges();")
+        self.w("const message= document.getElementById('message'); message.style.display= 'block'; setTimeout(() => {")
+        self.w("message.style.display = 'none';}, 1500);")
+        self.w("});});});")
+        self.w("</script>")
+
+        self.w('</head>')
         self.w('<body>')
+        self.w('<div id="message" style="display: none; position: fixed; top: 0; left: 50%; ')
+        self.w('transform: translateX(-50%); ')
+        self.w('background-color: #92ecc3; color: #03a9f4; padding: 8px; text-align: center;">')
+        self.w("La copie dans le presse-papiers est faite !")
+        self.w('</div>')
         sfx = None
         dataconf = jiraconf()['projects']
         if b'projects' in req:
@@ -143,6 +165,11 @@ class MyServer(BaseHTTPRequestHandler):
                                 self.wl('' + t.split('<body>')[-1].split('</body>')[0] + '</details>')
                         elif action == b'time_nb':
                             self.wl(time_nb(project))
+                        elif action == b'Burndown':
+                            self.wl(burndown(project))
+                        elif action == b'Worklog':
+                            for line in worklog_plan_html(project):
+                                self.w(line)
                 self.wl('</details>')
         if self.path == '/':
             self.index()
