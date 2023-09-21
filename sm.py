@@ -97,7 +97,7 @@ def remaining(project: str):
 def workload(project: str, start_date: str, date_to: str):
     data_conf = jiraconf()
     with JiraSM(project=project, **data_conf['projects'][project]).conn() as conn:
-        conn.workload(start_date=start_date, date_to=date_to)
+        conn.workload(start_date=start_date, date_to=datefile(date_to))
 
 
 def fmt_date_file(date: str):
@@ -107,7 +107,7 @@ def fmt_date_file(date: str):
 def workload_analyse(project: str, start_date: str, date_to: str, date_file: str = None) -> [dict, dict]:
     data_conf = jiraconf()
     now = datefile(date_file)
-    ends = 'workloads' + fmt_date_file(start_date) + '_' + fmt_date_file(date_to) + '_' + fmt_date_file(now) + '.json'
+    ends = f"workloads{fmt_date_file(start_date)}_{fmt_date_file(datefile(date_to))}_{fmt_date_file(now)}.json"
 
     print(data_conf['Common']['path_data'] + ends)
     with open(data_conf['Common']['path_data'] + ends, 'r', encoding='utf-8') as fp:
@@ -244,8 +244,8 @@ def analyse_workload_planned(start_date: str, date_to: str, date_file: str = Non
                              limit_today: bool = False):
     data_conf = jiraconf()
     now = datefile(date_file)
-    ends = fmt_date_file(start_date) + '_' + fmt_date_file(date_to) + '_' + now.replace('-', '') + '.json'
-    ds = dates(start_date=start_date, weeks=0, now=limit_today, end_date=date_to if not limit_today else None)
+    ends = f"{fmt_date_file(start_date)}_{fmt_date_file(datefile(date_to))}_{now.replace('-', '')}.json"
+    ds = dates(start_date=start_date, weeks=0, now=limit_today, end_date=datefile(date_to) if not limit_today else None)
     sum_project = {'all': {}}
     sum_project_person = {'all': {}}
     sum_project_planned = {'all': {}}
@@ -369,13 +369,14 @@ def analyse_workload_planned(start_date: str, date_to: str, date_file: str = Non
 
 
 def worklog_plan_html(project: str, date_file: str = None,
-                      start_date:str = '2023-08-01', date_to:str = '2023-10-01',  limit_today: bool = False):
-    workload(project=project, start_date=start_date, date_to=date_to)
-    workload_analyse(project=project, start_date=start_date, date_to=date_to)
+                      start_date: str = '2023-08-01', date_to: str = '2023-10-01',  limit_today: bool = False):
+    workload(project=project, start_date=start_date, date_to=datefile(date_to) if not limit_today else None)
+    workload_analyse(project=project, start_date=start_date, date_to=datefile(date_to) if not limit_today else None)
 
-    planned(project=project, start_date=start_date, date_to=date_to)
+    planned(project=project, start_date=start_date, date_to=datefile(date_to) if not limit_today else None)
     ds, d_person, sum_project, sum_project_planned, sum_project_person = analyse_workload_planned(
-        start_date=start_date, date_to=date_to, date_file=date_file, limit_today=limit_today)
+        start_date=start_date, date_to=datefile(date_to) if not limit_today else None, 
+        date_file=date_file, limit_today=limit_today)
     for p_infos in d_person.values():
         yield (f"<details open><summary>{p_infos['name']} <button class='cp' "
                f"id='cpb_{p_infos['name'].replace(' ', '_')}'")
@@ -514,11 +515,13 @@ def time_nb(project: str, suffix: str = '', date_file: str = None):
     return s.chart_html()
 
 
-def datefile(date_file) -> str:
+def datefile(date_file:str, delta: int = None) -> str:
     if date_file:
         now = date_file
+    elif delta is not None:
+        now = (datetime.now() + timedelta(days=delta)).strftime(Y_M_D)
     else:
-        now = (datetime.now() + timedelta(days=-0)).strftime(Y_M_D)
+        now = datetime.now().strftime(Y_M_D)
     return now
 
 
@@ -663,4 +666,4 @@ def burndown(project: str, sprint: str = None, suffix: str = '', date_file: str 
 def planned(project: str, start_date: str, date_to: str):
     data_conf = jiraconf()
     t = Tempo(project=project, **data_conf['projects'][project]).conn()
-    t.planned(start_date=start_date, date_to=date_to)
+    t.planned(start_date=start_date, date_to=datefile(date_to))

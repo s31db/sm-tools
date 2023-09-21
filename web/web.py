@@ -131,6 +131,7 @@ class MyServer(BaseHTTPRequestHandler):
                 actions = project + b'_actions'
                 filtre = project + b'_filter'
                 start = project + b'_start'
+                end = project + b'_end'
                 now = project + b'_now'
                 weeks = project + b'_weeks'
                 step = project + b'_step'
@@ -138,6 +139,7 @@ class MyServer(BaseHTTPRequestHandler):
                 project = project.decode('utf-8')
                 filtre = unescape(req[filtre][0].decode('utf-8'))
                 start = unescape(req[start][0].decode('utf-8'))
+                end = unescape(req[end][0].decode('utf-8'))
                 now = now in req
                 weeks = int(req[weeks][0].decode('utf-8'))
                 step = int(req[step][0].decode('utf-8'))
@@ -168,7 +170,8 @@ class MyServer(BaseHTTPRequestHandler):
                         elif action == b'Burndown':
                             self.wl(burndown(project))
                         elif action == b'Worklog':
-                            for line in worklog_plan_html(project):
+                            for line in worklog_plan_html(project=project, start_date=start, date_to=end,
+                                                          limit_today=now):
                                 self.w(line)
                 self.wl('</details>')
         if self.path == '/':
