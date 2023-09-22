@@ -6,7 +6,7 @@ from charts.burndown import Burndown
 from helpers.prepare_date_sprint import sprint_dates
 import json
 from config import config
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from prepare_data import tree
 import yaml
 from yaml.loader import SafeLoader
@@ -59,15 +59,15 @@ def get_tree(project: str, suffix: str = '', date_file: str = None):
 def prepare_data(project: str, suffix: str, date_file: str = None):
     data_conf = jiraconf()
     now = datefile(date_file)
-    print(data_conf['projects'][project]['path_data'] + now.replace('-', '') + project + '_' + suffix + '.json')
-    with open(data_conf['projects'][project]['path_data'] + now.replace('-', '') + project + '_' + suffix + '.json',
-              'r', encoding='utf-8') as fp:
+    path_file = f"{data_conf['projects'][project]['path_data']}{now.replace('-', '')}{project}_{suffix}'.json'"
+    print(path_file)
+    with open(path_file, 'r', encoding='utf-8') as fp:
         datas_sm = json.load(fp)
     return data_conf, datas_sm
 
 
 def dates(start_date: str = '2023-01-09', weeks: int = 9, now: bool = False, limit: str = None,
-          end_date: str = None) -> list[str]:
+          end_date: str = None) -> list[date]:
     return list(sprint_dates(start_date, weeks, now=now, limit=limit, end_date=end_date))
 
 
@@ -107,12 +107,15 @@ def fmt_date_file(date: str):
 def workload_analyse(project: str, start_date: str, date_to: str, date_file: str = None) -> [dict, dict]:
     data_conf = jiraconf()
     now = datefile(date_file)
-    ends = f"workloads{fmt_date_file(start_date)}_{fmt_date_file(datefile(date_to))}_{fmt_date_file(now)}.json"
+    ends = (f"workloads_{project}_{fmt_date_file(start_date)}_"
+            f"{fmt_date_file(datefile(date_to))}_{fmt_date_file(now)}.json")
 
     print(data_conf['Common']['path_data'] + ends)
     with open(data_conf['Common']['path_data'] + ends, 'r', encoding='utf-8') as fp:
         datas_sm = json.load(fp)
     # print(datas_sm)
+    # infos au global
+    works_project_global = {}
     # infos par projet, par personne, par journée
     works_project = {}
     # infos par personne, par journée
@@ -120,21 +123,29 @@ def workload_analyse(project: str, start_date: str, date_to: str, date_file: str
     for datas in datas_sm:
         datas['time'] = time(datas['timeSpentSecond']).strip()
         month = datas['day'][:7]
-        if datas['project'] not in works_project:
-            works_project[datas['project']] = {}
+        _project = datas['project']
+        if _project not in works_project:
+            works_project[_project] = {}
+            works_project_global[_project] = {'timeSpentSecond': 0, 'tickets': {}}
+
         if datas['author'] not in works_project[datas['project']]:
-            works_project[datas['project']][datas['author']] = {}
-        if month not in works_project[datas['project']][datas['author']]:
-            works_project[datas['project']][datas['author']][month] = {
-                'time': None, 'timeSpentSecond': 0, 'tickets': []}
-        if datas['day'] not in works_project[datas['project']][datas['author']]:
-            works_project[datas['project']][datas['author']][datas['day']] = {
-                'time': None, 'timeSpentSecond': 0, 'tickets': []}
-        works_project[datas['project']][datas['author']][month]['timeSpentSecond'] += int(datas['timeSpentSecond'])
-        works_project[datas['project']][datas['author']][datas['day']]['timeSpentSecond'] += int(
+            works_project[_project][datas['author']] = {}
+        if month not in works_project[_project][datas['author']]:
+            works_project[_project][datas['author']][month] = {'time': None, 'timeSpentSecond': 0, 'tickets': []}
+        if datas['day'] not in works_project[_project][datas['author']]:
+            works_project[_project][datas['author']][datas['day']] = {'time': None, 'timeSpentSecond': 0, 'tickets': []}
+
+        works_project_global[_project]['timeSpentSecond'] += int(datas['timeSpentSecond'])
+        if datas['key'] in works_project_global[_project]['tickets']:
+            works_project_global[_project]['tickets'][datas['key']] += int(datas['timeSpentSecond'])
+        else:
+            works_project_global[_project]['tickets'][datas['key']] = int(datas['timeSpentSecond'])
+
+        works_project[_project][datas['author']][month]['timeSpentSecond'] += int(datas['timeSpentSecond'])
+        works_project[_project][datas['author']][datas['day']]['timeSpentSecond'] += int(
             datas['timeSpentSecond'])
-        works_project[datas['project']][datas['author']][month]['tickets'].append(datas)
-        works_project[datas['project']][datas['author']][datas['day']]['tickets'].append(datas)
+        works_project[_project][datas['author']][month]['tickets'].append(datas)
+        works_project[_project][datas['author']][datas['day']]['tickets'].append(datas)
 
         if datas['author'] not in works:
             works[datas['author']] = {}
@@ -144,19 +155,19 @@ def workload_analyse(project: str, start_date: str, date_to: str, date_file: str
             works[datas['author']][datas['day']] = {'time': None, 'timeSpentSecond': 0, 'projects': {}, 'tickets': []}
 
         # if 'project' in datas:
-        if datas['project'] not in works[datas['author']][datas['day']]['projects']:
-            works[datas['author']][datas['day']]['projects'][datas['project']] = {
+        if _project not in works[datas['author']][datas['day']]['projects']:
+            works[datas['author']][datas['day']]['projects'][_project] = {
                 'time': None, 'timeSpentSecond': 0, 'tickets': []}
-        if datas['project'] not in works[datas['author']][month]['projects']:
-            works[datas['author']][month]['projects'][datas['project']] = {
+        if _project not in works[datas['author']][month]['projects']:
+            works[datas['author']][month]['projects'][_project] = {
                 'time': None, 'timeSpentSecond': 0, 'tickets': []}
 
-        works[datas['author']][month]['projects'][datas['project']]['timeSpentSecond'] += int(datas['timeSpentSecond'])
-        works[datas['author']][datas['day']]['projects'][datas['project']]['timeSpentSecond'] += int(
+        works[datas['author']][month]['projects'][_project]['timeSpentSecond'] += int(datas['timeSpentSecond'])
+        works[datas['author']][datas['day']]['projects'][_project]['timeSpentSecond'] += int(
             datas['timeSpentSecond'])
 
-        works[datas['author']][month]['projects'][datas['project']]['tickets'].append(datas)
-        works[datas['author']][datas['day']]['projects'][datas['project']]['tickets'].append(datas)
+        works[datas['author']][month]['projects'][_project]['tickets'].append(datas)
+        works[datas['author']][datas['day']]['projects'][_project]['tickets'].append(datas)
 
         works[datas['author']][month]['timeSpentSecond'] += int(datas['timeSpentSecond'])
         works[datas['author']][datas['day']]['timeSpentSecond'] += int(datas['timeSpentSecond'])
@@ -177,6 +188,9 @@ def workload_analyse(project: str, start_date: str, date_to: str, date_file: str
                 proj['time'] = time_days(proj['timeSpentSecond']).strip()
     with open(data_conf['Common']['path_data'] + 'calc_personnes_' + ends, 'w', encoding='utf-8') as f:
         json.dump(works, f, indent=2)
+    # print(time_days(works_project_global[project]['timeSpentSecond']))
+    # for key, value in works_project_global[project]['tickets'].items():
+    #     print(key, time_days(value))
     return works_project, work
 
 
@@ -240,7 +254,7 @@ def analyse_workload(start_date: str, date_to: str, date_file: str = None):
             print(team, month, 'no works')
 
 
-def analyse_workload_planned(start_date: str, date_to: str, date_file: str = None,
+def analyse_workload_planned(project: str, start_date: str, date_to: str, date_file: str = None,
                              limit_today: bool = False):
     data_conf = jiraconf()
     now = datefile(date_file)
@@ -251,7 +265,7 @@ def analyse_workload_planned(start_date: str, date_to: str, date_file: str = Non
     sum_project_planned = {'all': {}}
     d_person = {}
 
-    with open(data_conf['Common']['path_data'] + 'calc_personnes_workloads' + ends, 'r', encoding='utf-8') as f:
+    with open(f"{data_conf['Common']['path_data']}calc_personnes_workloads_{project}_{ends}", 'r', encoding='utf-8') as f:
         workloads = json.load(f)
 
     with open(data_conf['Common']['path_data'] + 'plan' + ends, 'r', encoding='utf-8') as f:
@@ -375,7 +389,8 @@ def worklog_plan_html(project: str, date_file: str = None,
 
     planned(project=project, start_date=start_date, date_to=datefile(date_to) if not limit_today else None)
     ds, d_person, sum_project, sum_project_planned, sum_project_person = analyse_workload_planned(
-        start_date=start_date, date_to=datefile(date_to) if not limit_today else None, 
+        project=project,
+        start_date=start_date, date_to=datefile(date_to) if not limit_today else None,
         date_file=date_file, limit_today=limit_today)
     for p_infos in d_person.values():
         yield (f"<details open><summary>{p_infos['name']} <button class='cp' "

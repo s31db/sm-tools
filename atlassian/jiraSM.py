@@ -465,10 +465,15 @@ class JiraSM:
 
     def workload(self, start_date: str, date_to: str, file: bool = True):
         workloads = []
-        jql_str = 'worklogDate>=' + start_date + ' and  worklogDate <=' + date_to + ' ORDER BY Rank ASC'
-        for task in self.search(jql_str=jql_str, fields='worklog, summary'):
+        # jql_str = f"project={self._project} and worklogDate>={start_date} and worklogDate <={date_to} ORDER BY Rank ASC"
+        jql_str = f"worklogDate>={start_date} and worklogDate <={date_to} ORDER BY Rank ASC"
+        for task in self.search(jql_str=jql_str, max_results=None, fields='worklog, summary'):
             # print(task.key)
-            for work in task.fields.worklog.worklogs:
+            if task.fields.worklog.total > task.fields.worklog.maxResults:
+                worklogs = self._jira.worklogs(task.key)
+            else:
+                worklogs = task.fields.worklog.worklogs
+            for work in worklogs:
                 # workloads.append({'author': str(work.author).strip(), 'day': work.started[:10],
                 workloads.append({'author': str(work.author).strip().replace(' ', '.').lower(),
                                   'day': work.started[:10],
@@ -476,8 +481,8 @@ class JiraSM:
                                   'project': task.key.split('-')[0]})
         # print(workloads)
         now = datetime.now().strftime('%Y%m%d')
-        path_file = self._path_data + 'workloads' + start_date.replace('-', '') + '_' + date_to.replace(
-            '-', '') + '_' + now + '.json'
+        path_file = (f"{self._path_data}workloads_{self._project}_"
+                     f"{start_date.replace('-', '')}_{date_to.replace('-', '')}_{now}.json")
         if file:
             with open(path_file, 'w', encoding='utf-8') as f:
                 json.dump(workloads, f, indent=2)
