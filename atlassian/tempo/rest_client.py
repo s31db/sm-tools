@@ -86,13 +86,11 @@ class RestAPIClient(object):
         if params or flags:
             url += '?'
         if params:
-            url += urlencode(params or {})
+            url += urlencode(params)
         if flags:
-            url += ('&' if params else '') + '&'.join(flags or [])
-        json_dump = None
+            url += ('&' if params else '') + '&'.join(flags)
         if files is None:
             data = None if not data else dumps(data)
-            json_dump = None if not json else dumps(json)
 
         headers = headers or self.default_headers
         response = self._session.request(
