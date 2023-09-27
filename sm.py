@@ -59,7 +59,7 @@ def get_tree(project: str, suffix: str = '', date_file: str = None):
 def prepare_data(project: str, suffix: str, date_file: str = None):
     data_conf = jiraconf()
     now = datefile(date_file)
-    path_file = f"{data_conf['projects'][project]['path_data']}{now.replace('-', '')}{project}_{suffix}'.json'"
+    path_file = f"{data_conf['projects'][project]['path_data']}{now.replace('-', '')}{project}_{suffix}.json"
     print(path_file)
     with open(path_file, 'r', encoding='utf-8') as fp:
         datas_sm = json.load(fp)
