@@ -29,14 +29,13 @@ class Tempo(RestAPIClient):
         self._base_url = base_url
         super().__init__(auth_token=auth_token)
 
-    def _resolve_date(self, value):
+    @staticmethod
+    def _resolve_date(value):
         if isinstance(value, datetime):
             return value.date()
         if isinstance(value, date):
             return value
-
         parsed = datetime.strptime(value,  r"%Y-%m-%d").date()
-
         return parsed
 
     def get(self, path, data=None, flags=None, params=None, headers=None, not_json_response=None, trailing=None):
@@ -108,193 +107,208 @@ class Tempo(RestAPIClient):
         return self.get(url)
 
     # Plans
-    def get_plans(self, dateFrom=None, dateTo=None, id=None, accountId=None, accountIds=None, assigneeTypes=None, genericResourceId=None, genericResourceIds=None, planIds=None, planItemIds=None, planItemTypes=None, plannedTimeBreakdown=None, updatedFrom=None):
+    def get_plans(self, date_from=None, date_to=None, plan_id=None, account_id=None, account_ids=None,
+                  assignee_types=None, generic_resource_id=None, generic_resource_ids=None, plan_ids=None,
+                  plan_item_ids=None, plan_item_types=None, planned_time_breakdown=None, updated_from=None):
         """
         Retrieves a list of existing Plans that matches the given search parameters.
-        :param dateFrom:
-        :param dateTo:
-        :param id:                      ~~~ retrieve plan ~~~
-        :param accountId:               ~~~ retrieve plans for user ~~~
-        :param accountIds:              ~~~ search plans ~~~
-        :param assigneeTypes:           ~~~ search plans ~~~
-        :param genericResourceId:       ~~~ retrieve plans for generic resource ~~~
-        :param genericResourceIds:      ~~~ search plans ~~~
-        :param planIds:                 ~~~ search plans ~~~
-        :param planItemIds:             ~~~ search plans ~~~
-        :param planItemTypes:           ~~~ search plans ~~~
-        :param plannedTimeBreakdown:    ~~~ search plans ~~~
-        :param updatedFrom:             ~~~ retrieve plans for user / retrieve plans for generic resource / search plans ~~~
+        :param date_from:
+        :param date_to:
+        :param plan_id: ~~~ retrieve plan ~~~
+        :param account_id: ~~~ retrieve plans for user ~~~
+        :param account_ids: ~~~ search plans ~~~
+        :param assignee_types: ~~~ search plans ~~~
+        :param generic_resource_id: ~~~ retrieve plans for generic resource ~~~
+        :param generic_resource_ids: ~~~ search plans ~~~
+        :param plan_ids: ~~~ search plans ~~~
+        :param plan_item_ids: ~~~ search plans ~~~
+        :param plan_item_types: ~~~ search plans ~~~
+        :param planned_time_breakdown: ~~~ search plans ~~~
+        :param updated_from: ~~~ retrieve plans for user / retrieve plans for generic resource / search plans ~~~
         """
         
         if id:
-            url = f"plans/{id}"
+            url = f"plans/{plan_id}"
             return self.get(url)
-        elif accountId:
-            url = f"/plans/user/{accountId}"
+        elif account_id:
+            url = f"/plans/user/{account_id}"
             params = {
                 "offset": 0,
                 "limit": self._limit
             }
-            if plannedTimeBreakdown:
-                params['plannedTimeBreakdown'] = plannedTimeBreakdown
-            if dateFrom:
-                params['from'] = self._resolve_date(dateFrom).isoformat()
-            if dateTo:
-                params['to'] = self._resolve_date(dateTo).isoformat()
-            if updatedFrom:
-                params['updatedFrom'] = self._resolve_date(updatedFrom).isoformat()
+            if planned_time_breakdown:
+                params['plannedTimeBreakdown'] = planned_time_breakdown
+            if date_from:
+                params['from'] = self._resolve_date(date_from).isoformat()
+            if date_to:
+                params['to'] = self._resolve_date(date_to).isoformat()
+            if updated_from:
+                params['updatedFrom'] = self._resolve_date(updated_from).isoformat()
 
             return self.get(url, params=params)
-        elif genericResourceId:
-            url = f"/plans/generic-resource/{genericResourceId}"
+        elif generic_resource_id:
+            url = f"/plans/generic-resource/{generic_resource_id}"
             params = {
                 "offset": 0,
                 "limit": self._limit
             }
-            if plannedTimeBreakdown:
-                params['plannedTimeBreakdown'] = plannedTimeBreakdown
-            if dateFrom:
-                params['from'] = self._resolve_date(dateFrom).isoformat()
-            if dateTo:
-                params['to'] = self._resolve_date(dateTo).isoformat()
-            if updatedFrom:
-                params['updatedFrom'] = self._resolve_date(updatedFrom).isoformat()
+            if planned_time_breakdown:
+                params['plannedTimeBreakdown'] = planned_time_breakdown
+            if date_from:
+                params['from'] = self._resolve_date(date_from).isoformat()
+            if date_to:
+                params['to'] = self._resolve_date(date_to).isoformat()
+            if updated_from:
+                params['updatedFrom'] = self._resolve_date(updated_from).isoformat()
 
             return self.get(url, params=params)
-        elif dateFrom and dateTo:
+        elif date_from and date_to:
             data = {
-                "from": self._resolve_date(dateFrom).isoformat(),
-                "to": self._resolve_date(dateTo).isoformat(),
+                "from": self._resolve_date(date_from).isoformat(),
+                "to": self._resolve_date(date_to).isoformat(),
                 "offset": 0,
                 "limit": self._limit
             }    
-            if accountIds:
-                data['accountIds'] = accountIds
-            if assigneeTypes:
-                data['assigneeTypes'] = assigneeTypes
-            if genericResourceIds:
-                data['genericResourceIds'] = genericResourceIds
-            if planIds:
-                data['planIds'] = planIds
-            if planItemIds:
-                data['planItemIds'] = planItemIds
-            if planItemTypes:
-                data['planItemTypes'] = planItemTypes
-            if plannedTimeBreakdown:
-                data['plannedTimeBreakdown'] = plannedTimeBreakdown
-            if updatedFrom:
-                data['updatedFrom'] = self._resolve_date(updatedFrom).isoformat()
+            if account_ids:
+                data['accountIds'] = account_ids
+            if assignee_types:
+                data['assigneeTypes'] = assignee_types
+            if generic_resource_ids:
+                data['genericResourceIds'] = generic_resource_ids
+            if plan_ids:
+                data['planIds'] = plan_ids
+            if plan_item_ids:
+                data['planItemIds'] = plan_item_ids
+            if plan_item_types:
+                data['planItemTypes'] = plan_item_types
+            if planned_time_breakdown:
+                data['plannedTimeBreakdown'] = planned_time_breakdown
+            if updated_from:
+                data['updatedFrom'] = self._resolve_date(updated_from).isoformat()
             url = "/plans/search"
             return self.post(url, data=data)
         return 
     
-    def get_plan(self, id):
-        return self.get_plans(id=id)
+    def get_plan(self, plan_id):
+        return self.get_plans(plan_id=plan_id)
     
-    def get_plan_for_user(self, accountId, plannedTimeBreakdown=None, dateFrom=None, dateTo=None, updatedFrom=None):
-        return self.get_plans(accountId=accountId, plannedTimeBreakdown=plannedTimeBreakdown, dateFrom=dateFrom, dateTo=dateTo, updatedFrom=updatedFrom)
+    def get_plan_for_user(self, account_id, planned_time_breakdown=None, date_from=None, date_to=None,
+                          updated_from=None):
+        return self.get_plans(account_id=account_id, planned_time_breakdown=planned_time_breakdown,
+                              date_from=date_from, date_to=date_to, updated_from=updated_from)
     
-    def get_plan_for_resource(self, genericResourceId, plannedTimeBreakdown=None, dateFrom=None, dateTo=None, updatedFrom=None):
-        return self.get_plans(genericResourceId=genericResourceId, plannedTimeBreakdown=plannedTimeBreakdown, dateFrom=dateFrom, dateTo=dateTo, updatedFrom=updatedFrom)
+    def get_plan_for_resource(self, generic_resource_id, planned_time_breakdown=None, date_from=None, date_to=None,
+                              updated_from=None):
+        return self.get_plans(generic_resource_id=generic_resource_id, planned_time_breakdown=planned_time_breakdown,
+                              date_from=date_from, date_to=date_to, updated_from=updated_from)
     
-    def search_plans(self, dateFrom, dateTo, accountIds=None, assigneeTypes=None, genericResourceIds=None, planIds=None, planItemIds=None, planItemTypes=None, plannedTimeBreakdown=None, updatedFrom=None):
-        return self.get_plans(dateFrom=dateFrom, dateTo=dateTo, accountIds=accountIds, assigneeTypes=assigneeTypes, genericResourceIds=genericResourceIds, planIds=planIds, planItemIds=planItemIds, planItemTypes=planItemTypes, plannedTimeBreakdown=plannedTimeBreakdown, updatedFrom=updatedFrom)
+    def search_plans(self, date_from, date_to, account_ids=None, assignee_types=None, generic_resource_ids=None,
+                     plan_ids=None, plan_item_ids=None, plan_item_types=None, planned_time_breakdown=None,
+                     updated_from=None):
+        return self.get_plans(date_from=date_from, date_to=date_to, account_ids=account_ids,
+                              assignee_types=assignee_types, generic_resource_ids=generic_resource_ids,
+                              plan_ids=plan_ids, plan_item_ids=plan_item_ids, plan_item_types=plan_item_types,
+                              planned_time_breakdown=planned_time_breakdown, updated_from=updated_from)
 
-    def create_plan(self, assigneeId, assigneeType, startDate, endDate, planItemId, planItemType, plannedSecondsPerDay, description=None, includeNonWorkingDays=None, planApprovalReviewerId=None, planApprovalStatus=None, recurrenceEndDate=None, rule=None):
+    def create_plan(self, assignee_id, assignee_type, start_date, end_date, plan_item_id, plan_item_type,
+                    planned_seconds_per_day, description=None, include_non_working_days=None,
+                    plan_approval_reviewer_id=None, plan_approval_status=None, recurrence_end_date=None, rule=None):
         """
-        :param assigneeId:
-        :param assigneeType:
-        :param startDate:
-        :param endDate:
-        :param planItemId:
-        :param planItemType:
-        :param plannedSecondsPerDay:
+        :param assignee_id:
+        :param assignee_type:
+        :param start_date:
+        :param end_date:
+        :param plan_item_id:
+        :param plan_item_type:
+        :param planned_seconds_per_day:
         :param description:
-        :param includeNonWorkingDays:
-        :param planApprovalReviewerId:
-        :param planApprovalStatus:
-        :param recurrenceEndDate:
+        :param include_non_working_days:
+        :param plan_approval_reviewer_id:
+        :param plan_approval_status:
+        :param recurrence_end_date:
         :param rule:
         """
         data = {
-            "assigneeId": assigneeId,
-            "assigneeType": assigneeType, # Enum: "USER" "GENERIC"
-            "startDate": self._resolve_date(startDate).isoformat(),
-            "endDate": self._resolve_date(endDate).isoformat(),
-            "planItemId": planItemId,
-            "planItemType": planItemType, # Enum: "ISSUE" "PROJECT"
-            "plannedSecondsPerDay": plannedSecondsPerDay
+            "assigneeId": assignee_id,
+            "assigneeType": assignee_type,  # Enum: "USER" "GENERIC"
+            "startDate": self._resolve_date(start_date).isoformat(),
+            "endDate": self._resolve_date(end_date).isoformat(),
+            "planItemId": plan_item_id,
+            "planItemType": plan_item_type,  # Enum: "ISSUE" "PROJECT"
+            "plannedSecondsPerDay": planned_seconds_per_day
         }
         if description:
             data['description'] = description
-        if includeNonWorkingDays:
-            data['includeNonWorkingDays'] = includeNonWorkingDays
-        if planApprovalReviewerId:
-            if not planApprovalStatus:
+        if include_non_working_days:
+            data['includeNonWorkingDays'] = include_non_working_days
+        if plan_approval_reviewer_id:
+            if not plan_approval_status:
                 data['planApproval'] = {
-                    "reviewerId": planApprovalReviewerId,
+                    "reviewerId": plan_approval_reviewer_id,
                     "status": "REQUESTED"
                 } 
             else:
                 data['planApproval'] = {
-                    "reviewerId": planApprovalReviewerId,
-                    "status": planApprovalStatus # Enum: "APPROVED" "REJECTED" "REQUESTED"
+                    "reviewerId": plan_approval_reviewer_id,
+                    "status": plan_approval_status  # Enum: "APPROVED" "REJECTED" "REQUESTED"
                 } 
-        if recurrenceEndDate:
-            data['recurrenceEndDate'] = recurrenceEndDate
+        if recurrence_end_date:
+            data['recurrenceEndDate'] = recurrence_end_date
         if rule:
             data['rule'] = rule   # Enum: "NEVER" "WEEKLY" "BI_WEEKLY" "MONTHLY"
 
         url = "/plans"
         return self.post(url, data=data)
         
-    def update_plan(self, id, assigneeId, assigneeType, startDate, endDate, planItemId, planItemType, plannedSecondsPerDay, description=None, includeNonWorkingDays=None, planApprovalReviewerId=None, planApprovalStatus=None, recurrenceEndDate=None, rule=None):
+    def update_plan(self, plan_id, assignee_id, assignee_type, start_date, end_date, plan_item_id, plan_item_type,
+                    planned_seconds_per_day, description=None, include_non_working_days=None,
+                    plan_approval_reviewer_id=None, plan_approval_status=None, recurrence_end_date=None, rule=None):
         """
-        :param id:
-        :param assigneeId:
-        :param assigneeType:
-        :param startDate:
-        :param endDate:
-        :param planItemId:
-        :param planItemType:
-        :param plannedSecondsPerDay:
+        :param plan_id:
+        :param assignee_id:
+        :param assignee_type:
+        :param start_date:
+        :param end_date:
+        :param plan_item_id:
+        :param plan_item_type:
+        :param planned_seconds_per_day:
         :param description:
-        :param includeNonWorkingDays:
-        :param planApprovalReviewerId:
-        :param planApprovalStatus:
-        :param recurrenceEndDate:
+        :param include_non_working_days:
+        :param plan_approval_reviewer_id:
+        :param plan_approval_status:
+        :param recurrence_end_date:
         :param rule:
         """
         data = {
-            "assigneeId": assigneeId,
-            "assigneeType": assigneeType, # Enum: "USER" "GENERIC"
-            "startDate": self._resolve_date(startDate).isoformat(),
-            "endDate": self._resolve_date(endDate).isoformat(),
-            "planItemId": planItemId,
-            "planItemType": planItemType, # Enum: "ISSUE" "PROJECT"
-            "plannedSecondsPerDay": plannedSecondsPerDay
+            "assigneeId": assignee_id,
+            "assigneeType": assignee_type,  # Enum: "USER" "GENERIC"
+            "startDate": self._resolve_date(start_date).isoformat(),
+            "endDate": self._resolve_date(end_date).isoformat(),
+            "planItemId": plan_item_id,
+            "planItemType": plan_item_type,  # Enum: "ISSUE" "PROJECT"
+            "plannedSecondsPerDay": planned_seconds_per_day
         }
         if description:
             data['description'] = description
-        if includeNonWorkingDays:
-            data['includeNonWorkingDays'] = includeNonWorkingDays
-        if planApprovalReviewerId:
-            if not planApprovalStatus:
+        if include_non_working_days:
+            data['includeNonWorkingDays'] = include_non_working_days
+        if plan_approval_reviewer_id:
+            if not plan_approval_status:
                 data['planApproval'] = {
-                    "reviewerId": planApprovalReviewerId,
+                    "reviewerId": plan_approval_reviewer_id,
                     "status": "REQUESTED"
                 } 
             else:
                 data['planApproval'] = {
-                    "reviewerId": planApprovalReviewerId,
-                    "status": planApprovalStatus # Enum: "APPROVED" "REJECTED" "REQUESTED"
+                    "reviewerId": plan_approval_reviewer_id,
+                    "status": plan_approval_status  # Enum: "APPROVED" "REJECTED" "REQUESTED"
                 } 
-        if recurrenceEndDate:
-            data['recurrenceEndDate'] = recurrenceEndDate
+        if recurrence_end_date:
+            data['recurrenceEndDate'] = recurrence_end_date
         if rule:
             data['rule'] = rule   # Enum: "NEVER" "WEEKLY" "BI_WEEKLY" "MONTHLY"
 
-        url = f"/plans/{id}"
+        url = f"/plans/{plan_id}"
         return self.put(url, data=data)
 
     def delete_plan(self, id):
@@ -302,24 +316,19 @@ class Tempo(RestAPIClient):
         return self.delete(url)
        
     # Programs
-    ## TBD
 
     # Roles
-    ## TBD
 
     # Teams
-    def get_teams(self, teamId=None):
+    def get_teams(self, team_id=None):
         """
         Returns teams information.
-        :param teamId: Returns details for team ```teamId```.
+        :param team_id: Returns details for team ```team_id```.
         """
 
-        # url = f"/teams"
-        # url = f"/team"
-        url = ''
-        if (teamId):
-            url = f'/team'
-            url += f"/{teamId}"
+        url = 'teams'
+        if team_id:
+            url = f"/team/{team_id}"
 
         return self.get(url)
 
@@ -333,48 +342,47 @@ class Tempo(RestAPIClient):
         return self.get(url)
 
     # Team - Links
-    ## TBD
 
     # Team - Memberships
-    def get_team_memberships(self, teamId):
+    def get_team_memberships(self, team_id):
         """
         Returns members.
-        :param teamId:
+        :param team_id:
         """
 
-        url = f"/team-memberships/team/{teamId}"
+        url = f"/team-memberships/team/{team_id}"
         return self.get(url)
 
-    def get_account_team_membership(self, teamId, accountId):
+    def get_account_team_membership(self, team_id, account_id):
         """
         Returns the active team membership.
-        :param accountId:
-        :param teamId:
+        :param account_id:
+        :param team_id:
         """
 
-        return self.get(f"/teams/{teamId}/members/{accountId}")
+        return self.get(f"/teams/{team_id}/members/{account_id}")
 
-    def get_account_team_memberships(self, teamId, accountId):
+    def get_account_team_memberships(self, team_id, account_id):
         """
         Returns all team memberships.
-        :param accountId:
-        :param teamId:
+        :param account_id:
+        :param team_id:
         """
 
-        return self.get(f"/teams/{teamId}/members/{accountId}/memberships")
+        return self.get(f"/teams/{team_id}/members/{account_id}/memberships")
 
 # Periods
 
-    def get_periods(self, dateFrom, dateTo):
+    def get_periods(self, date_from, date_to):
         """
         Retrieves periods.
-        :param dateFrom:
-        :param dateTo:
+        :param date_from:
+        :param date_to:
         """
 
         params = {
-            "from": self._resolve_date(dateFrom).isoformat(),
-            "to": self._resolve_date(dateTo).isoformat()
+            "from": self._resolve_date(date_from).isoformat(),
+            "to": self._resolve_date(date_to).isoformat()
             }
 
         return self.get("/periods", params=params)
@@ -386,45 +394,45 @@ class Tempo(RestAPIClient):
         Retrieve waiting timesheet approvals
         """
 
-        return self.get(f"/timesheet-approvals/waiting")
+        return self.get("/timesheet-approvals/waiting")
 
-    def get_timesheet_approvals(self, dateFrom=None, dateTo=None, userId=None, teamId=None):
+    def get_timesheet_approvals(self, date_from=None, date_to=None, user_id=None, team_id=None):
         """
         Retrieves timesheet approvals.
-        :param dateFrom:
-        :param dateTo:
-        :param userId:
-        :param teamId:
+        :param date_from:
+        :param date_to:
+        :param user_id:
+        :param team_id:
         """
         params = {}
-        if dateFrom:
-            params["from"] = self._resolve_date(dateFrom).isoformat()
-        if dateTo:
-            params["to"] = self._resolve_date(dateTo).isoformat()
+        if date_from:
+            params["from"] = self._resolve_date(date_from).isoformat()
+        if date_to:
+            params["to"] = self._resolve_date(date_to).isoformat()
 
-        url = f"/timesheet-approvals"
-        if userId:
-            url += f"/user/{userId}"
-        elif teamId:
-            url += f"/team/{teamId}"
+        url = "/timesheet-approvals"
+        if user_id:
+            url += f"/user/{user_id}"
+        elif team_id:
+            url += f"/team/{team_id}"
         return self.get(url, params=params)
 
     # User Schedule
-    def get_user_schedule(self, dateFrom, dateTo, userId=None):
+    def get_user_schedule(self, date_from, date_to, user_id=None):
         """
         Returns user schedule.
-        :param dateFrom:
-        :param dateTo:
-        :param userId:
+        :param date_from:
+        :param date_to:
+        :param user_id:
         """
 
         params = {
-            "from": self._resolve_date(dateFrom).isoformat(),
-            "to": self._resolve_date(dateTo).isoformat()
+            "from": self._resolve_date(date_from).isoformat(),
+            "to": self._resolve_date(date_to).isoformat()
             }
         url = "/user-schedule"
-        if userId:
-            url += f"/{userId}"
+        if user_id:
+            url += f"/{user_id}"
         return self.get(url, params=params)
 
     # Work Attributes
@@ -435,23 +443,23 @@ class Tempo(RestAPIClient):
         return self.get("/work-attributes")
 
     # Workload Schemes
-    def get_workload_schemes(self, id=None):
-        url = f"/workload-schemes"
-        if id:
-            url += f"/{id}"
+    def get_workload_schemes(self, workload_schemes_id=None):
+        url = "/workload-schemes"
+        if workload_schemes_id:
+            url += f"/{workload_schemes_id}"
         return self.get(url)
 
 # Holiday Schemes
 
-    def get_holiday_schemes(self, holidaySchemeId=None, year=None):
+    def get_holiday_schemes(self, holiday_scheme_id=None, year=None):
         """
         Retrieve holidays for an existing holiday scheme.
-        :param holidaySchemeId:
+        :param holiday_scheme_id:
         :param year:
         """
-        url = f"/holiday-schemes"
-        if holidaySchemeId:
-            url += f"/{holidaySchemeId}/holidays"
+        url = "/holiday-schemes"
+        if holiday_scheme_id:
+            url += f"/{holiday_scheme_id}/holidays"
 
         params = {}
 
@@ -460,97 +468,108 @@ class Tempo(RestAPIClient):
 
         return self.get(url, params=params)
 
-    def create_holiday_scheme(self, schemeName, schemeDescription=None):
+    def create_holiday_scheme(self, scheme_name, scheme_description=None):
         """
         Create holiday scheme
-        :param name:
-        :param description:
+        :param scheme_name:
+        :param scheme_description:
         """
 
-        url = f"/holiday-schemes"
+        url = "/holiday-schemes"
 
-        data = {"name": schemeName, "description": schemeDescription}
+        data = {"name": scheme_name, "description": scheme_description}
 
         return self.post(url, data=data)
 
-    def create_holiday(self, holidaySchemeId, type=None, name=None, description=None, durationSeconds=None, date=None, data=None):
+    def create_holiday(self, holiday_scheme_id, type_data=None, name=None, description=None,
+                       duration_seconds=None, date_holiday=None, data=None):
         """
         Create holiday scheme
+        :param data: 
+        :param date_holiday: 
+        :param duration_seconds: 
+        :param holiday_scheme_id:
+        :param type_data:
         :param name:
         :param description:
         """
 
         # either provide data, or build from other params
-        if (not(data)):
-          data = {
-            "type": type,
-            "name": name,
-            "description": description,
-            "durationSeconds": durationSeconds,
-            "date": date
+        if not data:
+            data = {
+                "type": type_data,
+                "name": name,
+                "description": description,
+                "durationSeconds": duration_seconds,
+                "date": date_holiday
           }
 
-        url = f"/holiday-schemes/" + str(holidaySchemeId) + "/holidays"
+        url = f"/holiday-schemes/{holiday_scheme_id}/holidays"
 
         return self.post(url, data=data)
 
-
-
-
 # Worklogs
 
-    def get_worklogs(self, dateFrom, dateTo, updatedFrom=None, worklogId=None, jiraWorklogId=None, jiraFilterId=None,
-                     accountKey=None, projectId=None, teamId=None, accountId=None, issueId=None):
+    def get_worklogs(self, date_from, date_to, updated_from=None, worklog_id=None, jira_worklog_id=None,
+                     jira_filter_id=None, account_key=None, project_id=None, team_id=None, account_id=None,
+                     issue_id=None):
         """
         Returns worklogs for particular parameters.
-        :param dateFrom:
-        :param dateTo:
-        :param updatedFrom:
-        :param worklogId:
-        :param jiraWorklogId:
-        :param jiraFilterId:
-        :param accountKey:
-        :param projectId:
-        :param teamId:
-        :param accountId:
+        :param issue_id:
+        :param date_from:
+        :param date_to:
+        :param updated_from:
+        :param worklog_id:
+        :param jira_worklog_id:
+        :param jira_filter_id:
+        :param account_key:
+        :param project_id:
+        :param team_id:
+        :param account_id:
         :param issue:
         """
 
         params = {
-            "from": self._resolve_date(dateFrom).isoformat(),
-            "to": self._resolve_date(dateTo).isoformat(),
+            "from": self._resolve_date(date_from).isoformat(),
+            "to": self._resolve_date(date_to).isoformat(),
             "offset": 0,
             "limit": self._limit
             }
 
-        if projectId:
-            params['projectId'] = projectId
+        if project_id:
+            params['projectId'] = project_id
 
-        if updatedFrom:
-            params["updatedFrom"] = self._resolve_date(updatedFrom).isoformat()
+        if updated_from:
+            params["updatedFrom"] = self._resolve_date(updated_from).isoformat()
 
-        url = f"/worklogs"
-        if worklogId:
-            url += f"/{worklogId}"
-        elif jiraWorklogId:
-            url += f"/jira/{jiraWorklogId}"
-        elif jiraFilterId:
-            url += f"/jira/filter/{jiraFilterId}"
-        elif accountKey:
-            url += f"/account/{accountKey}"
-        elif teamId:
-            url += f"/team/{teamId}"
-        elif accountId:
-            url += f"/user/{accountId}"
-        elif issueId:
-            url += f"/issue/{issueId}"
+        url = "/worklogs"
+        if worklog_id:
+            url += f"/{worklog_id}"
+        elif jira_worklog_id:
+            url += f"/jira/{jira_worklog_id}"
+        elif jira_filter_id:
+            url += f"/jira/filter/{jira_filter_id}"
+        elif account_key:
+            url += f"/account/{account_key}"
+        elif team_id:
+            url += f"/team/{team_id}"
+        elif account_id:
+            url += f"/user/{account_id}"
+        elif issue_id:
+            url += f"/issue/{issue_id}"
 
         return self.get(url, params=params)
 
-    def search_worklogs(self, dateFrom, dateTo, updatedFrom=None, authorIds=None, issueIds=None, projectIds=None,
-                     	offset=None, limit=None):
+    def search_worklogs(self, date_from, date_to, updated_from=None, author_ids=None, issue_ids=None, project_ids=None,
+                        offset=None, limit=None):
         """
         Retrieves a list of existing Worklogs that matches the given search parameter.
+        :param project_ids:
+        :param issue_ids:
+        :param author_ids:
+        :param updated_from:
+        :param date_to:
+        :param date_from:
         :param offset:
         :param limit:
         """
@@ -561,18 +580,18 @@ class Tempo(RestAPIClient):
         }
 
         data = {
-            "from": self._resolve_date(dateFrom).isoformat(),
-            "to": self._resolve_date(dateTo).isoformat()
+            "from": self._resolve_date(date_from).isoformat(),
+            "to": self._resolve_date(date_to).isoformat()
         }
 
-        if updatedFrom:
-            data["updatedFrom"] = updatedFrom
-        if authorIds:
-            data["authorIds"] = authorIds
-        if issueIds:
-            data["issueIds"] = issueIds
-        if projectIds:
-            data["projectIds"] = projectIds
+        if updated_from:
+            data["updatedFrom"] = updated_from
+        if author_ids:
+            data["authorIds"] = author_ids
+        if issue_ids:
+            data["issueIds"] = issue_ids
+        if project_ids:
+            data["projectIds"] = project_ids
 
         url = "/worklogs/search"
 
