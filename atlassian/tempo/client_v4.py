@@ -127,7 +127,7 @@ class Tempo(RestAPIClient):
         :param updated_from: ~~~ retrieve plans for user / retrieve plans for generic resource / search plans ~~~
         """
         
-        if id:
+        if plan_id:
             url = f"plans/{plan_id}"
             return self.get(url)
         elif account_id:
@@ -187,8 +187,7 @@ class Tempo(RestAPIClient):
                 data['updatedFrom'] = self._resolve_date(updated_from).isoformat()
             url = "/plans/search"
             return self.post(url, data=data)
-        return 
-    
+
     def get_plan(self, plan_id):
         return self.get_plans(plan_id=plan_id)
     
@@ -228,34 +227,9 @@ class Tempo(RestAPIClient):
         :param recurrence_end_date:
         :param rule:
         """
-        data = {
-            "assigneeId": assignee_id,
-            "assigneeType": assignee_type,  # Enum: "USER" "GENERIC"
-            "startDate": self._resolve_date(start_date).isoformat(),
-            "endDate": self._resolve_date(end_date).isoformat(),
-            "planItemId": plan_item_id,
-            "planItemType": plan_item_type,  # Enum: "ISSUE" "PROJECT"
-            "plannedSecondsPerDay": planned_seconds_per_day
-        }
-        if description:
-            data['description'] = description
-        if include_non_working_days:
-            data['includeNonWorkingDays'] = include_non_working_days
-        if plan_approval_reviewer_id:
-            if not plan_approval_status:
-                data['planApproval'] = {
-                    "reviewerId": plan_approval_reviewer_id,
-                    "status": "REQUESTED"
-                } 
-            else:
-                data['planApproval'] = {
-                    "reviewerId": plan_approval_reviewer_id,
-                    "status": plan_approval_status  # Enum: "APPROVED" "REJECTED" "REQUESTED"
-                } 
-        if recurrence_end_date:
-            data['recurrenceEndDate'] = recurrence_end_date
-        if rule:
-            data['rule'] = rule   # Enum: "NEVER" "WEEKLY" "BI_WEEKLY" "MONTHLY"
+        data = self.prepare_data(assignee_id, assignee_type, description, end_date, include_non_working_days,
+                                 plan_approval_reviewer_id, plan_approval_status, plan_item_id, plan_item_type,
+                                 planned_seconds_per_day, recurrence_end_date, rule, start_date)
 
         url = "/plans"
         return self.post(url, data=data)
@@ -279,6 +253,16 @@ class Tempo(RestAPIClient):
         :param recurrence_end_date:
         :param rule:
         """
+        data = self.prepare_data(assignee_id, assignee_type, description, end_date, include_non_working_days,
+                                 plan_approval_reviewer_id, plan_approval_status, plan_item_id, plan_item_type,
+                                 planned_seconds_per_day, recurrence_end_date, rule, start_date)
+
+        url = f"/plans/{plan_id}"
+        return self.put(url, data=data)
+
+    def prepare_data(self, assignee_id, assignee_type, description, end_date, include_non_working_days,
+                     plan_approval_reviewer_id, plan_approval_status, plan_item_id, plan_item_type,
+                     planned_seconds_per_day, recurrence_end_date, rule, start_date):
         data = {
             "assigneeId": assignee_id,
             "assigneeType": assignee_type,  # Enum: "USER" "GENERIC"
@@ -297,19 +281,17 @@ class Tempo(RestAPIClient):
                 data['planApproval'] = {
                     "reviewerId": plan_approval_reviewer_id,
                     "status": "REQUESTED"
-                } 
+                }
             else:
                 data['planApproval'] = {
                     "reviewerId": plan_approval_reviewer_id,
                     "status": plan_approval_status  # Enum: "APPROVED" "REJECTED" "REQUESTED"
-                } 
+                }
         if recurrence_end_date:
             data['recurrenceEndDate'] = recurrence_end_date
         if rule:
-            data['rule'] = rule   # Enum: "NEVER" "WEEKLY" "BI_WEEKLY" "MONTHLY"
-
-        url = f"/plans/{plan_id}"
-        return self.put(url, data=data)
+            data['rule'] = rule  # Enum: "NEVER" "WEEKLY" "BI_WEEKLY" "MONTHLY"
+        return data
 
     def delete_plan(self, id):
         url = f"/plans/{id}"
