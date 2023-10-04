@@ -308,19 +308,19 @@ class Tempo(RestAPIClient):
         :param team_id: Returns details for team ```team_id```.
         """
 
-        url = 'teams'
+        url = '/teams'
         if team_id:
             url = f"/team/{team_id}"
 
         return self.get(url)
 
-    def get_team_members(self, teamId):
+    def get_team_members(self, team_id):
         """
         Returns members for particular team.
-        :param teamId: teamId
+        :param team_id: teamId
         """
 
-        url = f"/teams/{teamId}/members"
+        url = f"/team/{team_id}/member"
         return self.get(url)
 
     # Team - Links

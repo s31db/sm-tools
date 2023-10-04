@@ -80,8 +80,8 @@ class Tempo:
 
     def tempo_teams(self, start_date, teams) -> 'atlassian.tempo_jira.Tempo':
         for team, members in teams.items():
-            self._tempo._base_url = f'{self._url_server}rest/tempo-teams/2/team/{team}/member'
-            teams_info = self._tempo.get_teams()
+            self._tempo._base_url = f'{self._url_server}rest/tempo-teams/2'
+            teams_info = self._tempo.get_team_members(team)
             for team_info in teams_info:
                 member = {'role': team_info['membership']['role']['name']}
                 if ('dateToANSI' not in team_info['membership']
