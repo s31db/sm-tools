@@ -9,6 +9,7 @@ class Burndown(Chart):
     _dates: list[str]
     _start_is_max: bool = False
     _figsize: tuple[int] = (8, 4)
+    _indicators: bool = True
 
     def title(self, title: str):
         self._title = title
@@ -36,10 +37,11 @@ class Burndown(Chart):
         ax.plot(self._dates[:len(self._values)], self._values)
         plt.xticks(self._dates)
         ax.plot(date_limits, (start_value, 0), alpha=.9, linewidth=0.9)
-        ax.fill_between(date_limits, (start_value, 2), (start_value, -3),
-                        alpha=.3, linewidth=0, color='green', hatch='**')
-        ax.fill_between(date_limits, [start_value, 2], [start_value, 8], alpha=.3, linewidth=0, color='red', hatch='/')
-        ax.fill_between(date_limits, [start_value, -3], [start_value, -8], alpha=.2, linewidth=0, color='red')
+        if self._indicators:
+            ax.fill_between(date_limits, (start_value, 2), (start_value, -3),
+                            alpha=.3, linewidth=0, color='green', hatch='**')
+            ax.fill_between(date_limits, [start_value, 2], [start_value, 8], alpha=.3, linewidth=0, color='red', hatch='/')
+            ax.fill_between(date_limits, [start_value, -3], [start_value, -8], alpha=.2, linewidth=0, color='red')
 
         plt.subplots_adjust(left=0.1, right=0.9, top=0.9, bottom=0.1)
         ax.set_xlim(xmin=0)

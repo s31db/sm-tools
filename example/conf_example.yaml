@@ -4,6 +4,27 @@ projects:
 #  https://xxxx.atlassian.net/rest/api/2/field
 #  https://xxxx.atlassian.net/rest/api/2/issue/XXX
 #  https://xxxx.atlassian.net/rest/api/2/search?jql=key%20%3D%20XXX&expand=changelog
+#  https://xxxx.atlassian.net/rest/tempo-teams/2/team/14/member
+#  https://xxxx.atlassian.net/rest/tempo-planning/1/allocation?assigneeKeys=lea&assigneeKeys=admin&assigneeType=user&startDate=2014-11-10&endDate=2014-11-20
+  Example_Worklog_Plan:
+    name: Example_Worklog_Plan
+    url_server: mock
+    token_auth: mock
+    path_data: datas/
+    filter: NO_FILTER!
+    start: "2023-08-01"
+    end: "2023-10-01"
+    weeks: 8
+    actions:
+      - Worklog
+    teams:
+      - 5
+      - 12
+      - 14
+    tempo_exclude: 'N/A '
+    tempo_replace:
+      'Project - ': ''
+      'Alpha': 'Bravo'
   Example:
     name: Example
     url_server: mock

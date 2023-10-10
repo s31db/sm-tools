@@ -2,11 +2,11 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from math import pi
 
-from chart import Chart
+from charts.chart import Chart
 
 
 def calc(data):
-    if data.values == 'First':
+    if data.values[0] in ('First', 'Temps 1'):
         return data
     r = []
     for i in data.values:
@@ -16,7 +16,7 @@ def calc(data):
 
 class Radar(Chart):
 
-    def build(self):
+    def build(self, df: pd.DataFrame):
         # Set data
         # df = pd.DataFrame({
         #     'group': ['First', 'Second'],
@@ -34,21 +34,7 @@ class Radar(Chart):
         #     'Vision claire global sprint planning': [1, 3],
         #     'S@M': [11/4, (6+4+1.5)/5],
         # })
-        df = pd.DataFrame({
-            # 'group': ['First', 'Second'],
-            'group': ['First'],
-            'Délivrer de la valeur': ((3, 4, 0),),
-            'Facile à déployer': ((3, 4, 0),),
-            'Amusant': ((6, 0, 0),),
-            'Santé du code': ((0, 4.5, 0.5),),
-            'Apprentissage': ((7, 0, 0),),
-            'Mission': ((5, 0, 0),),
-            'Pions ou joueurs': ((2, 4, 0),),
-            'Rapidité': ((0, 4, 0),),
-            'Processus Adapté': ((3, 1, 0),),
-            'Support': ((5, 0, 0),),
-            "Travail d'équipe": ((3, 1, 0),),
-        })
+
         df = df.apply(calc)
         # print(df.tail(15))
         # exit(0)
@@ -87,7 +73,8 @@ class Radar(Chart):
         # Ind1
         values = df.loc[0].drop('group').values.flatten().tolist()
         values += values[:1]
-        ax.plot(angles, values, linewidth=1, linestyle='solid', label="Initial")
+        # ax.plot(angles, values, linewidth=1, linestyle='solid', label="Initial")
+        ax.plot(angles, values, linewidth=1, linestyle='solid', label="Temps1")
         ax.fill(angles, values, 'b', alpha=0.1)
 
         # Ind2
@@ -100,16 +87,44 @@ class Radar(Chart):
         plt.legend(loc='upper right', bbox_to_anchor=(0.1, 0.1))
         return self
 
-    def save(self, filepath: str = 'tmp/radar_health_check.png', _format: str = 'png'):
-        # bytes_io_img = BytesIO()
-        # plt.savefig(bytes_io_img, format='png', dpi=50)
-        # bytes_io_img.seek(0)
-        # return b64encode(bytes_io_img.read()).decode("utf-8")
-        plt.savefig(filepath, format=_format, dpi=50)
-        return self
+    # def save(self, filepath: str = 'tmp/radar_health_check.png', _format: str = 'png'):
+    #     # bytes_io_img = BytesIO()
+    #     # plt.savefig(bytes_io_img, format='png', dpi=50)
+    #     # bytes_io_img.seek(0)
+    #     # return b64encode(bytes_io_img.read()).decode("utf-8")
+    #     plt.savefig(filepath, format=_format, dpi=50)
+    #     return self
 
 
-if __name__ == '__main__':
-    # print('<img src="data:image/png;base64,' + radar() + '" alt="" />')
-    # put_html('<img src="data:image/png;base64,' + radar() + '" alt="" />', source='S@M')
-    Radar().build().show()
+def test_squad_health_check():
+    df = pd.DataFrame({
+        # 'group': ['First', 'Second'],
+        'group': ['First'],
+        'Délivrer de la valeur': ((3, 4, 0),),
+        'Facile à déployer': ((3, 4, 0),),
+        'Amusant': ((6, 0, 0),),
+        'Santé du code': ((0, 4.5, 0.5),),
+        'Apprentissage': ((7, 0, 0),),
+        'Mission': ((5, 0, 0),),
+        'Pions ou joueurs': ((2, 4, 0),),
+        'Rapidité': ((0, 4, 0),),
+        'Processus Adapté': ((3, 1, 0),),
+        'Support': ((5, 0, 0),),
+        "Travail d'équipe": ((3, 1, 0),),
+    })
+    Radar().build(df).show()
+
+
+def test_kanban():
+    df = pd.DataFrame({
+        # 'group': ['First', 'Second'],
+        'group': ['Temps 1', 'Temps 2'],
+        'Visualiser': ((3, 4, 0), (6, 4, 0)),
+        'Limiter le travail en cours': ((6, 0, 0), (7, 4, 0)),
+        'Gérer et mesurer le flux de travail': ((7, 0, 0), (8, 4, 0)),
+        'Rendre explicite les règles de gestion des processus': ((6, 0, 0), (3, 4, 0)),
+        'Implémenter des boucles de feedbacks': ((3, 4, 0), (6, 4, 0)),
+        "S'améliorer de manière collaborative": ((0, 4.5, 0.5), (2, 4, 0)),
+    })
+    # Radar().build(df).show().save('tmp/radar_health_check.png')
+    Radar().build(df).save('tmp/radar_health_check.png')

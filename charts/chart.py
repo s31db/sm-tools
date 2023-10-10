@@ -41,9 +41,9 @@ class Chart:
         bytes_io_img.seek(0)
         return b64encode(bytes_io_img.read()).decode("utf-8"), self
 
-    def chart_html(self):
+    def chart_html(self) -> str:
         i = self.img64()[0]
-        return '<img  src="data:image/png;base64,' + i + '" alt="" />'
+        return '<img src="data:image/png;base64,' + i + '" alt="" />'
 
     def copy_html(self, source: str = 'S@M'):
         tab = self.chart_html()
@@ -52,4 +52,8 @@ class Chart:
 
     def show(self):
         plt.show()
+        return self
+
+    def save(self, filepath: str, format_img: str = 'png', dpi: int = 90):
+        plt.savefig(filepath, format=format_img, dpi=dpi)
         return self
