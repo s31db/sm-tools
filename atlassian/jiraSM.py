@@ -455,13 +455,12 @@ class JiraSM:
         return s
 
     def sprint_actif(self):
-        s = {}
         for sprint in self._jira.sprints(self._board_id):
             if sprint.state != 'future':
                 sprint_id = sprint.id
                 sprint_infos = {'start_date': sprint.activatedDate, 'end_date': sprint.endDate,
                                 'name': sprint.name, 'state': sprint.state}
-        return sprint_id, sprint_infos
+                return sprint_id, sprint_infos
 
     def workload(self, start_date: str, date_to: str, file: bool = True):
         workloads = []

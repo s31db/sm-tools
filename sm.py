@@ -415,6 +415,28 @@ def worklog_plan_html(project: str, date_file: str = None,
         yield '</div>'
         yield '</details>'
 
+    yield "<details open><summary>Plan <button class='cp' id='cpb_Plan'"
+    yield 'style="padding: 8px 8px; background-color: transparent; border: none; cursor: pointer;">'
+    yield '&#x1F4CB;</button></summary>'
+    yield "<div id='div_cpb_Plan'>"
+    for d, projects in sum_project_planned.items():
+        for project, project_info in projects.items():
+            yield f"{d} {project} {time_days(project_info['timeSpentSecond'])}"
+            yield '<br/>'
+    yield '</div>'
+    yield '</details>'
+
+    yield "<details open><summary>Log <button class='cp' id='cpb_Log'"
+    yield 'style="padding: 8px 8px; background-color: transparent; border: none; cursor: pointer;">'
+    yield '&#x1F4CB;</button></summary>'
+    yield "<div id='div_cpb_Log'>"
+    for d, projects in sum_project.items():
+        for project, project_info in projects.items():
+            yield f"{d} {project} {time_days(project_info['timeSpentSecond'])}"
+            yield '<br/>'
+    yield '</div>'
+    yield '</details>'
+
 
 def out_person(project: str):
     data_conf = jiraconf()
