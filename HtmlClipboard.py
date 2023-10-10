@@ -51,43 +51,47 @@ def put_html(fragment, source=None):
 
 # ---------------------------------------------------------------------------
 
-class HtmlClipboard:
 
+class HtmlClipboard:
     CF_HTML = None
 
-    MARKER_BLOCK_OUTPUT = \
-        "Version:1.0\r\n" \
-        "StartHTML:%09d\r\n" \
-        "EndHTML:%09d\r\n" \
-        "StartFragment:%09d\r\n" \
-        "EndFragment:%09d\r\n" \
-        "StartSelection:%09d\r\n" \
-        "EndSelection:%09d\r\n" \
+    MARKER_BLOCK_OUTPUT = (
+        "Version:1.0\r\n"
+        "StartHTML:%09d\r\n"
+        "EndHTML:%09d\r\n"
+        "StartFragment:%09d\r\n"
+        "EndFragment:%09d\r\n"
+        "StartSelection:%09d\r\n"
+        "EndSelection:%09d\r\n"
         "SourceURL:%s\r\n"
+    )
 
-    MARKER_BLOCK_EX = \
-        "Version:(\S+)\s+" \
-        "StartHTML:(\d+)\s+" \
-        "EndHTML:(\d+)\s+" \
-        "StartFragment:(\d+)\s+" \
-        "EndFragment:(\d+)\s+" \
-        "StartSelection:(\d+)\s+" \
-        "EndSelection:(\d+)\s+" \
+    MARKER_BLOCK_EX = (
+        "Version:(\S+)\s+"
+        "StartHTML:(\d+)\s+"
+        "EndHTML:(\d+)\s+"
+        "StartFragment:(\d+)\s+"
+        "EndFragment:(\d+)\s+"
+        "StartSelection:(\d+)\s+"
+        "EndSelection:(\d+)\s+"
         "SourceURL:(\S+)"
+    )
     MARKER_BLOCK_EX_RE = re.compile(MARKER_BLOCK_EX)
 
-    MARKER_BLOCK = \
-        "Version:(\S+)\s+" \
-        "StartHTML:(\d+)\s+" \
-        "EndHTML:(\d+)\s+" \
-        "StartFragment:(\d+)\s+" \
-        "EndFragment:(\d+)\s+" \
+    MARKER_BLOCK = (
+        "Version:(\S+)\s+"
+        "StartHTML:(\d+)\s+"
+        "EndHTML:(\d+)\s+"
+        "StartFragment:(\d+)\s+"
+        "EndFragment:(\d+)\s+"
         "SourceURL:(\S+)"
+    )
     MARKER_BLOCK_RE = re.compile(MARKER_BLOCK)
 
-    DEFAULT_HTML_BODY = \
-        "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0 Transitional//EN\">" \
+    DEFAULT_HTML_BODY = (
+        '<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">'
         "<HTML><HEAD></HEAD><BODY><!--StartFragment-->%s<!--EndFragment--></BODY></HTML>"
+    )
 
     def __init__(self):
         self.html = None
@@ -159,7 +163,7 @@ class HtmlClipboard:
                 elif err.winerror == 0:  # open failure
                     pass
                 else:
-                    print('ERROR in Clipboard section of readcomments: %s' % err)
+                    print("ERROR in Clipboard section of readcomments: %s" % err)
 
     def decode_clipboard_source(self, src):
         """
@@ -170,9 +174,9 @@ class HtmlClipboard:
         if matches:
             self.prefix = matches.group(0)
             self.htmlClipboardVersion = matches.group(1)
-            self.html = src[int(matches.group(2)):int(matches.group(3))]
-            self.fragment = src[int(matches.group(4)):int(matches.group(5))]
-            self.selection = src[int(matches.group(6)):int(matches.group(7))]
+            self.html = src[int(matches.group(2)) : int(matches.group(3))]
+            self.fragment = src[int(matches.group(4)) : int(matches.group(5))]
+            self.selection = src[int(matches.group(6)) : int(matches.group(7))]
             self.source = matches.group(8)
         else:
             # Failing that, try the version without a selection
@@ -180,8 +184,8 @@ class HtmlClipboard:
             if matches:
                 self.prefix = matches.group(0)
                 self.htmlClipboardVersion = matches.group(1)
-                self.html = src[int(matches.group(2)):int(matches.group(3))]
-                self.fragment = src[int(matches.group(4)):int(matches.group(5))]
+                self.html = src[int(matches.group(2)) : int(matches.group(3))]
+                self.fragment = src[int(matches.group(4)) : int(matches.group(5))]
                 self.source = matches.group(6)
                 self.selection = self.fragment
 
@@ -235,24 +239,42 @@ class HtmlClipboard:
         fragment_end = fragment_start + len(fragment)
         selection_start = html.index(selection)
         selection_end = selection_start + len(selection)
-        self.put_to_clipboard(html, fragment_start, fragment_end, selection_start, selection_end, source)
+        self.put_to_clipboard(
+            html, fragment_start, fragment_end, selection_start, selection_end, source
+        )
 
-    def put_to_clipboard(self, html, fragment_start, fragment_end, selection_start, selection_end, source="None"):
+    def put_to_clipboard(
+        self,
+        html,
+        fragment_start,
+        fragment_end,
+        selection_start,
+        selection_end,
+        source="None",
+    ):
         """
         Replace the Clipboard contents with the given html information.
         """
         try:
             win32clipboard.OpenClipboard(0)
             win32clipboard.EmptyClipboard()
-            src = self.encode_clipboard_source(html, fragment_start, fragment_end, selection_start, selection_end,
-                                               source)
+            src = self.encode_clipboard_source(
+                html,
+                fragment_start,
+                fragment_end,
+                selection_start,
+                selection_end,
+                source,
+            )
             src = src.encode("UTF-8")
             # print(src)
             win32clipboard.SetClipboardData(self.get_cf_html(), src)
         finally:
             win32clipboard.CloseClipboard()
 
-    def encode_clipboard_source(self, html, fragment_start, fragment_end, selection_start, selection_end, source):
+    def encode_clipboard_source(
+        self, html, fragment_start, fragment_end, selection_start, selection_end, source
+    ):
         """
         Join all our bits of information into a string formatted as per the HTML format specs.
         """
@@ -260,15 +282,19 @@ class HtmlClipboard:
         dummy_prefix = self.MARKER_BLOCK_OUTPUT % (0, 0, 0, 0, 0, 0, source)
         len_prefix = len(dummy_prefix)
 
-        prefix = self.MARKER_BLOCK_OUTPUT % (len_prefix, len(html) + len_prefix,
-                                             fragment_start + len_prefix, fragment_end + len_prefix,
-                                             selection_start + len_prefix, selection_end + len_prefix,
-                                             source)
+        prefix = self.MARKER_BLOCK_OUTPUT % (
+            len_prefix,
+            len(html) + len_prefix,
+            fragment_start + len_prefix,
+            fragment_end + len_prefix,
+            selection_start + len_prefix,
+            selection_end + len_prefix,
+            source,
+        )
         return prefix + html
 
 
 def dump_html():
-
     cb = HtmlClipboard()
     print("available_formats()=%s" % str(cb.available_formats()))
     print("has_html_format()=%s" % str(cb.has_html_format()))
@@ -287,4 +313,3 @@ def test_simple_get_put_html():
     put_html(data)
     assert get_html() == data
     # dump_html()
-    

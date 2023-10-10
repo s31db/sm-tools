@@ -9,7 +9,7 @@ from charts.chart import Chart
 class Scatter(Chart):
     _values: dict
     _legend: str | bool | None
-    _percent: dict = {0.5: 'blue', 0.75: 'green', 0.85: 'red'}
+    _percent: dict = {0.5: "blue", 0.75: "green", 0.85: "red"}
     _xtick: list | None
     _x: str
     _y: str
@@ -24,8 +24,8 @@ class Scatter(Chart):
     _filtre: str = None
 
     def by_date(self):
-        self._x = 'date'
-        self._y = 'tps_t'
+        self._x = "date"
+        self._y = "tps_t"
         self._xtick = None
         self._size = None
         # self._size = 'estimate'
@@ -38,15 +38,15 @@ class Scatter(Chart):
         self._style = None
         self._style_order = None
         self._palette = None
-        self._legend = 'full'
+        self._legend = "full"
         self._legend = None
         # self._ncol_legend = len(self._hue_order) + 1
         # self._ncol_legend = len(self._size_order) + 1
         return self
 
     def by_estimate(self):
-        self._x = 'estimate'
-        self._y = 'tps_t'
+        self._x = "estimate"
+        self._y = "tps_t"
         self._xtick = [0, 0.5, 1, 2, 3, 5, 8, 13]
         self._size = None
         self._size_order = None
@@ -54,7 +54,7 @@ class Scatter(Chart):
         self._hue_order = None
         self._style = None
         self._style_order = None
-        self._palette = 'muted'
+        self._palette = "muted"
         self._legend = False
         self._ncol_legend = None
         return self
@@ -77,8 +77,12 @@ class Scatter(Chart):
             size_order=self._size_order,
             style_order=self._style_order,
             sizes=(40, 400),
-            alpha=.5, palette=self._palette,
-            height=6, data=d, legend=self._legend)
+            alpha=0.5,
+            palette=self._palette,
+            height=6,
+            data=d,
+            legend=self._legend,
+        )
 
         if self._xtick:
             plt.xticks(self._xtick)
@@ -88,12 +92,31 @@ class Scatter(Chart):
         ylim = xtick[-1] + 0.1
 
         if self._legend:
-            sns.move_legend(g, "upper center", bbox_to_anchor=(.5, 1), ncol=self._ncol_legend, frameon=True)
+            sns.move_legend(
+                g,
+                "upper center",
+                bbox_to_anchor=(0.5, 1),
+                ncol=self._ncol_legend,
+                frameon=True,
+            )
 
         for percent, color in self._percent.items():
             percent_val = d[self._y].quantile(percent)
-            plt.plot([-0.5, ylim], [percent_val, percent_val], linewidth=1, color=color, linestyle='--')
-            plt.text(ylim + 0.2, percent_val, "percent " + str(int(percent * 100)),
-                     horizontalalignment='left', size='medium', color=color, weight='semibold')
+            plt.plot(
+                [-0.5, ylim],
+                [percent_val, percent_val],
+                linewidth=1,
+                color=color,
+                linestyle="--",
+            )
+            plt.text(
+                ylim + 0.2,
+                percent_val,
+                "percent " + str(int(percent * 100)),
+                horizontalalignment="left",
+                size="medium",
+                color=color,
+                weight="semibold",
+            )
 
         return self

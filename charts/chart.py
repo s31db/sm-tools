@@ -20,7 +20,7 @@ class Chart:
         if args:
             self._title = args[0]
         for key, value in kwargs.items():
-            setattr(self, '_' + key, value)
+            setattr(self, "_" + key, value)
 
     def title(self, title: str):
         self._title = title
@@ -35,7 +35,7 @@ class Chart:
         send_to_clipboard(win32clipboard.CF_DIB, data)
         return self
 
-    def img64(self, format_img: str = 'png'):
+    def img64(self, format_img: str = "png"):
         bytes_io_img = BytesIO()
         plt.savefig(bytes_io_img, format=format_img, dpi=90)
         bytes_io_img.seek(0)
@@ -45,7 +45,7 @@ class Chart:
         i = self.img64()[0]
         return '<img src="data:image/png;base64,' + i + '" alt="" />'
 
-    def copy_html(self, source: str = 'S@M'):
+    def copy_html(self, source: str = "S@M"):
         tab = self.chart_html()
         put_html(tab, source=source)
         return self
@@ -54,6 +54,6 @@ class Chart:
         plt.show()
         return self
 
-    def save(self, filepath: str, format_img: str = 'png', dpi: int = 90):
+    def save(self, filepath: str, format_img: str = "png", dpi: int = 90):
         plt.savefig(filepath, format=format_img, dpi=dpi)
         return self
