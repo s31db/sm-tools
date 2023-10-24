@@ -21,12 +21,10 @@ serverPort = 8000
 class MyServer(BaseHTTPRequestHandler):
     tampon: str = ""
 
-    def do_GET(self):
+    def do_GET(self) -> None:
         self.send_response(200)
-        if self.path in ("/favicon.ico",):
-            return
 
-        elif self.path.startswith("/treemap"):
+        if self.path.startswith("/treemap"):
             sfx = None
             self.send_header("Content-type", "text/html")
             self.end_headers()
@@ -40,11 +38,20 @@ class MyServer(BaseHTTPRequestHandler):
             self.end_headers()
             self.w("<!DOCTYPE html/>")
             self.w('<meta charset="UTF-8">')
-            self.w("<html><head><title>S@M Tools</title></head>")
+            self.w("<html><head><title>S@M Tools</title>")
+            self.fav_icon()
+            self.w("</head>")
+            # <a target="_blank" href="https://icons8.com/icon/i2wM0iCYXY7G/scrum">Scrum</a>
+            # icon by <a target="_blank" href="https://icons8.com">Icons8</a>
             self.w("<body>")
             if self.path == "/":
                 self.index()
             self.w("</body></html>")
+
+    def fav_icon(self):
+        self.w('<link rel="icon" type="image/png" href="')
+        self.w("https://img.icons8.com/external-flaticons-flat-flat-icons/64")
+        self.w('/000000/external-scrum-agile-flaticons-flat-flat-icons-8.png" />')
 
     def w(self, arg: str, append: bool = False):
         if append:
@@ -54,7 +61,7 @@ class MyServer(BaseHTTPRequestHandler):
     def wl(self, arg: str, append: bool = False):
         self.w(arg + "<br/>", append=append)
 
-    def index(self):
+    def index(self) -> None:
         actions = {
             "Extract": None,
             "Burndown": None,
@@ -66,7 +73,7 @@ class MyServer(BaseHTTPRequestHandler):
         self.wl('<form method="post" action="/action">')
         self.w("<fieldset><legend>Project</legend>")
         dataconf = jiraconf()
-        for key, conf in dataconf["projects"].items():
+        for key, conf in dataconf["projects"].items():  # type: ignore
             self.wl(
                 f'<input name="projects" type="checkbox" value="{key}">{key}</input>'
             )
@@ -126,20 +133,20 @@ class MyServer(BaseHTTPRequestHandler):
         )
         self.wl("</form>")
 
-    def parse_post(self):
-        content_len = int(self.headers.get("Content-Length"), 0)
+    def parse_post(self) -> dict[bytes, list[bytes]]:
+        content_len: int = int(self.headers.get("Content-Length"), 0)  # type: ignore
         post_body = self.rfile.read(content_len)
         req = parse_qs(post_body, keep_blank_values=True, encoding="utf-8")
         return req
 
-    def do_POST(self):
+    def do_POST(self) -> None:
         if self.path in ("/favicon.ico",):
             return
         # print(self.path)
         if self.path == "/action":
             self.post_action()
 
-    def post_action(self):
+    def post_action(self) -> None:
         req = self.parse_post()
         # print(req)
         self.send_response(200)
@@ -148,6 +155,7 @@ class MyServer(BaseHTTPRequestHandler):
         self.w("<!DOCTYPE html>")
         self.w('<meta charset="UTF-8">')
         self.w("<html><head><title>S@m Tools</title>")
+        self.fav_icon()
 
         self.w("<script>")
         self.w("document.addEventListener('DOMContentLoaded', () => {")
@@ -178,24 +186,23 @@ class MyServer(BaseHTTPRequestHandler):
         self.w("La copie dans le presse-papiers est faite !")
         self.w("</div>")
         sfx = None
-        dataconf = jiraconf()["projects"]
         if b"projects" in req:
-            for project in req[b"projects"]:
-                actions = project + b"_actions"
-                filtre = project + b"_filter"
-                start = project + b"_start"
-                end = project + b"_end"
-                now = project + b"_now"
-                weeks = project + b"_weeks"
-                step = project + b"_step"
+            for b_project in req[b"projects"]:
+                actions = b_project + b"_actions"
+                b_filtre = b_project + b"_filter"
+                b_start = b_project + b"_start"
+                b_end = b_project + b"_end"
+                b_now = b_project + b"_now"
+                b_weeks = b_project + b"_weeks"
+                b_step = b_project + b"_step"
 
-                project = project.decode("utf-8")
-                filtre = unescape(req[filtre][0].decode("utf-8"))
-                start = unescape(req[start][0].decode("utf-8"))
-                end = unescape(req[end][0].decode("utf-8"))
-                now = now in req
-                weeks = int(req[weeks][0].decode("utf-8"))
-                step = int(req[step][0].decode("utf-8"))
+                project = b_project.decode("utf-8")
+                filtre = unescape(req[b_filtre][0].decode("utf-8"))
+                start = unescape(req[b_start][0].decode("utf-8"))
+                end = unescape(req[b_end][0].decode("utf-8"))
+                now = b_now in req
+                weeks = int(req[b_weeks][0].decode("utf-8"))
+                step = int(req[b_step][0].decode("utf-8"))
 
                 self.w("<details open><summary>" + project + "</summary>")
                 self.w(
@@ -241,7 +248,7 @@ class MyServer(BaseHTTPRequestHandler):
                         elif action == b"time_nb":
                             self.wl(time_nb(project))
                         elif action == b"Burndown":
-                            self.wl(burndown(project))
+                            self.wl(burndown(project, suffix="sprint"))
                         elif action == b"Worklog":
                             for line in worklog_plan_html(
                                 project=project,

@@ -15,7 +15,9 @@ def father(
     return None, None, None, None
 
 
-def build_tree(datas: dict) -> Tuple[dict, dict]:
+def build_tree(
+    datas: dict,
+) -> Tuple[dict, dict[str, str | dict[str, dict[str, str | int | float]]]]:
     ids = {}
     for story, values in datas.items():
         ids[story] = {

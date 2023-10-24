@@ -2,17 +2,18 @@ from charts.chart import Chart
 import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
 import matplotlib.dates as mdates
+from typing import Self
 
 
-def previous_date(str_date):
+def previous_date(str_date: str) -> str:
     return (datetime.strptime(str_date, "%Y-%m-%d") - timedelta(days=1)).strftime(
         "%d/%m"
     )
 
 
 class Cumulative(Chart):
-    _datas: dict
-    _colors: dict = {
+    _datas: dict[str, dict[str, dict[str, None | str | int | float | dict[str, str]]]]
+    _colors: dict[str, str] = {
         "Done": "darkgreen",
         "Test": "forestgreen",
         "In Progress": "#5358ad",
@@ -23,36 +24,39 @@ class Cumulative(Chart):
     _details: bool = True
     _restart_done: bool = False
     _date_format: bool = True
-    _asofs_all: list
-    _group_status: dict = {}
-    _status_done: list = []
+    _asofs_all: list[str]
+    _group_status: dict[str, dict[str, str | int | float]] = {}
+    _status_done: tuple[str, ...] = ()
 
-    def datas(self, datas: dict):
+    def datas(
+        self,
+        datas: dict[
+            str, dict[str, dict[str, None | str | int | float | dict[str, str]]]
+        ],
+    ) -> Self:
         self._datas = datas
         return self
 
-    def asofs_all(self, asofs_all: list):
+    def asofs_all(self, asofs_all: list[str]) -> Self:
         self._asofs_all = asofs_all
         return self
 
-    def colors(self, colors: dict):
+    def colors(self, colors: dict) -> Self:
         self._colors = colors
         return self
 
-    def details(self, details: bool):
+    def details(self, details: bool) -> Self:
         self._details = details
         return self
 
-    def build(self):
-        vals = {}
+    def build(self) -> Self:
+        vals: dict[str, list[int]] = {}
         for val in self._colors.keys():
             vals[val] = []
-        asofs = []
-        self.count_status(asofs, vals)
+        asofs: list[str] = self.count_status(vals)
 
         colors, vals = self.prepare_colors(vals)
-        print(vals)
-        done_total_first = 0
+        done_total_first: int = 0
         if self._restart_done:
             for status_done in self._status_done:
                 if status_done in vals:
@@ -77,9 +81,11 @@ class Cumulative(Chart):
                 alpha=0.8,
                 colors=colors,
             )
-        dates = [datetime.strptime(d, "%Y-%m-%d") for d in self._asofs_all]
+        dates: list[datetime] = [
+            datetime.strptime(d, "%Y-%m-%d") for d in self._asofs_all
+        ]
         if self._date_format:
-            plt.xticks(dates)
+            plt.xticks(dates)  # type: ignore
             if len(dates) > 100:
                 ax.xaxis.set_major_locator(mdates.DayLocator(interval=14))
             else:
@@ -113,7 +119,8 @@ class Cumulative(Chart):
                 colors.append(self._colors[key])
         return colors, vals2
 
-    def count_status(self, asofs, vals):
+    def count_status(self, vals) -> list[str]:
+        asofs: list[str] = []
         for d, datas in self._datas.items():
             if d in self._asofs_all:
                 asofs.append(d)
@@ -123,11 +130,12 @@ class Cumulative(Chart):
                     statu = [
                         data["status"]
                         if data["status"] not in self._group_status
-                        else self._group_status[data["status"]]
+                        else self._group_status[data["status"]]  # type: ignore
                         for data in datas.values()
                     ]
                 for status, nb in vals.items():
                     nb.append(statu.count(status))
+        return asofs
 
 
 def test_show():

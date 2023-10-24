@@ -6,7 +6,7 @@ from charts.burndown import Burndown
 from helpers.prepare_date_sprint import sprint_dates
 import json
 from config import config
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 from prepare_data import tree
 import yaml
 from yaml.loader import SafeLoader
@@ -18,7 +18,7 @@ Y_M_D = "%Y-%m-%d"
 
 def jira_cum(
     project: str,
-    date_file: str = None,
+    date_file: str | None = None,
     suffix: str = "",
     step: int = 1,
     details: bool = False,
@@ -32,7 +32,7 @@ def jira_cum(
         project=project, suffix=suffix, date_file=date_file
     )
     i = 0
-    filter_dates = []
+    filter_dates: list[str] = []
     for da in d:
         if i == 0:
             filter_dates.append(da)
@@ -41,7 +41,7 @@ def jira_cum(
         else:
             i += 1
     cum = Cumulative(
-        project, restart_done=True, **data_conf["projects"][project]
+        project, restart_done=True, **data_conf["projects"][project]  # type: ignore
     ).details(details)
     my_dict = data_conf["projects"][project]["colors"]
     my_dict = dict(reversed(my_dict.items()))
@@ -60,7 +60,7 @@ def jira_cum(
 def jira_treemap(
     project: str,
     suffix: str = "",
-    date_file: str = None,
+    date_file: str | None = None,
     html: bool = False,
     show: bool = False,
 ):
@@ -78,7 +78,13 @@ def jira_treemap(
     return t
 
 
-def get_tree(project: str, suffix: str = "", date_file: str = None):
+def get_tree(
+    project: str, suffix: str = "", date_file: str | None = None
+) -> tuple[
+    dict[str, dict[str, dict[str, str | list[str] | int | float]]],
+    dict[str, str | dict[str, dict[str, str | int | float]]],
+    str,
+]:
     now = datefile(date_file)
     data_conf, datas_sm = prepare_data(
         project=project, suffix=suffix, date_file=date_file
@@ -87,13 +93,23 @@ def get_tree(project: str, suffix: str = "", date_file: str = None):
     return data_conf, n, now
 
 
-def prepare_data(project: str, suffix: str, date_file: str = None):
-    data_conf = jiraconf()
+def prepare_data(
+    project: str, suffix: str, date_file: str | None = None
+) -> tuple[
+    dict[str, dict[str, dict[str, dict[str, str | int | list[str] | dict[str, str]]]]],
+    dict[str, dict[str, dict[str, None | float | str | int | dict[str, str]]]],
+]:
+    data_conf: dict[
+        str, dict[str, dict[str, dict[str, str | int | list[str] | dict[str, str]]]]
+    ] = jiraconf()
     now = datefile(date_file)
     path_file = f"{data_conf['projects'][project]['path_data']}{now.replace('-', '')}{project}_{suffix}.json"
-    print(path_file)
+    print(f"file:///{path_file}", path_file)
     with open(path_file, "r", encoding="utf-8") as fp:
-        datas_sm = json.load(fp)
+        # dict de date de ticket avec update ou fields
+        datas_sm: dict[
+            str, dict[str, dict[str, None | str | int | dict[str, str]]]
+        ] = json.load(fp)
     return data_conf, datas_sm
 
 
@@ -101,9 +117,9 @@ def dates(
     start_date: str = "2023-01-09",
     weeks: int = 9,
     now: bool = False,
-    limit: str = None,
-    end_date: str = None,
-) -> list[date]:
+    limit: str | None = None,
+    end_date: str | None = None,
+) -> list[str]:
     return list(
         sprint_dates(start_date, weeks, now=now, limit=limit, end_date=end_date)
     )
@@ -117,7 +133,13 @@ def extract_jira(project: str, start_date: str, filtre: str = "", suffix: str = 
     )
 
 
-def jiraconf():
+def jiraconf() -> (
+    dict[str, dict[str, dict[str, dict[str, str | int | list[str] | dict[str, str]]]]]
+):
+    data_conf: dict[
+        str, dict[str, dict[str, dict[str, str | int | list[str] | dict[str, str]]]]
+    ]
+    # common str ou projets de projet avec fields, list, dict
     c = config()
     with open(c.JIRA.conf, "r", encoding="utf-8") as f:
         data_conf = yaml.load(f, Loader=SafeLoader)
@@ -134,19 +156,19 @@ def remaining(project: str):
     JiraSM(project=project, **data_conf["projects"][project]).conn().remaining()
 
 
-def workload(project: str, start_date: str, date_to: str):
+def workload(project: str, start_date: str, date_to: str | None):
     data_conf = jiraconf()
     with JiraSM(project=project, **data_conf["projects"][project]).conn() as conn:
         conn.workload(start_date=start_date, date_to=datefile(date_to))
 
 
-def fmt_date_file(date: str):
-    return date.replace("-", "")
+def fmt_date_file(date_file: str):
+    return date_file.replace("-", "")
 
 
 def workload_analyse(
-    project: str, start_date: str, date_to: str, date_file: str = None
-) -> [dict, dict]:
+    project: str, start_date: str, date_to: str | None, date_file: str | None = None
+) -> tuple[dict, dict]:
     data_conf = jiraconf()
     now = datefile(date_file)
     ends = (
@@ -159,11 +181,21 @@ def workload_analyse(
         datas_sm = json.load(fp)
     # print(datas_sm)
     # infos au global
-    works_project_global = {}
+    works_project_global: dict[str, int | dict[str, int]] = {}
     # infos par projet, par personne, par journée
-    works_project = {}
+    works_project: dict[
+        str, dict[str, dict[str, dict[str, str | int | list[dict[str, str | int]]]]]
+    ] = {}
     # infos par personne, par journée
-    works = {}
+    works: dict[
+        str,
+        dict[
+            str,
+            dict[
+                str, str | int | dict[str, dict[str, str | int | dict[str, str | int]]]
+            ],
+        ],
+    ] = {}
     for datas in datas_sm:
         datas["time"] = time(datas["timeSpentSecond"]).strip()
         month = datas["day"][:7]
@@ -288,7 +320,7 @@ def workload_analyse(
     return works_project, work
 
 
-def analyse_workload(start_date: str, date_to: str, date_file: str = None):
+def analyse_workload(start_date: str, date_to: str, date_file: str | None = None):
     data_conf = jiraconf()
     now = datefile(date_file)
     ends = (
@@ -399,7 +431,7 @@ def analyse_workload_planned(
     project: str,
     start_date: str,
     date_to: str,
-    date_file: str = None,
+    date_file: str | None = None,
     limit_today: bool = False,
 ):
     data_conf = jiraconf()
@@ -585,9 +617,9 @@ def analyse_workload_planned(
 
 def worklog_plan_html(
     project: str,
-    date_file: str = None,
+    date_file: str | None = None,
     start_date: str = "2023-08-01",
-    date_to: str = "2023-10-01",
+    date_to: str | None = "2023-10-01",
     limit_today: bool = False,
 ):
     workload(
@@ -746,7 +778,7 @@ def sprints(project: str, suffix: str = ""):
         }
     from charts.barcompare import Barcompare
 
-    Barcompare("Sprint By Sprint", rotation=45).nodes(sprints_calcul).width_bar(
+    Barcompare("Sprint By Sprint", rotation=45.0).nodes(sprints_calcul).width_bar(
         0.25
     ).build().show()
 
@@ -769,12 +801,12 @@ def float_to_int(value: float):
     return value
 
 
-def weeks_of_mounth(da: str):
-    date = datetime.strptime(da, Y_M_D)
-    return str(date.isocalendar()[1])
+def weeks_of_mounth(da: str) -> str:
+    date_weeks: datetime = datetime.strptime(da, Y_M_D)
+    return str(date_weeks.isocalendar()[1])
 
 
-def time_nb(project: str, suffix: str = "", date_file: str = None):
+def time_nb(project: str, suffix: str = "", date_file: str | None = None):
     now = datefile(date_file)
     datas_sm = prepare_data(project=project, suffix=suffix, date_file=now)[1]
     tickets = []
@@ -845,7 +877,7 @@ def time_nb(project: str, suffix: str = "", date_file: str = None):
     return s.chart_html()
 
 
-def datefile(date_file: str, delta: int = None) -> str:
+def datefile(date_file: str | None, delta: int | None = None) -> str:
     if date_file:
         now = date_file
     elif delta is not None:
@@ -855,7 +887,7 @@ def datefile(date_file: str, delta: int = None) -> str:
     return now
 
 
-def histogramme(project: str, suffix: str = "", date_file: str = None):
+def histogramme(project: str, suffix: str = "", date_file: str | None = None):
     now = datefile(date_file)
     datas_sm = prepare_data(project=project, suffix=suffix, date_file=now)[1]
     tickets = []
@@ -932,9 +964,11 @@ def time_days(tim: int | None):
         return ti
 
 
-def analysis_tree(project: str, date_file: str = None):
+def analysis_tree(project: str, date_file: str | None = None):
+    data_conf: dict[str, dict[str, dict[str, str | list[str] | int]]]
+    n: dict[str, dict[str, str | int | float]]
     data_conf, n, now = get_tree(project=project, date_file=date_file)
-    epics = {}
+    epics: dict[str, dict[str, str | dict[str, dict[str, str | int | float]]]] = {}
     for story, v in n.items():
         if v["lvl"] == 0:
             father = v["father"] if "father" in v else "No Epics"
@@ -972,37 +1006,30 @@ def re_tree(project: str, start_date: str, filtre: str = "", suffix: str = ""):
 
 def burndown(
     project: str,
-    sprint: str = None,
     suffix: str = "",
-    date_file: str = None,
-    filtre: str = "",
+    date_file: str | None = None,
 ):
     data_conf = jiraconf()
     conf = data_conf["projects"][project]
     conf["type_base"] = None
     with JiraSM(project=project, **conf).conn() as conn:
-        if sprint:
-            pass
-        else:
-            sprint_id, sprint_infos = conn.sprint_actif()
-            sprint = sprint_infos["name"]
-            filtre = " and sprint={0} ".format(sprint_id)
+        sprint_id, sprint_infos = conn.sprint_actif()
+        sprint: str = sprint_infos["name"]
+        filtre = f" and sprint={sprint_id} "
         d = [sprint_infos["start_date"]]
-        print(sprint_infos, d)
         d += dates(
             sprint_infos["start_date"][:10],
             0,
             now=False,
             end_date=sprint_infos["end_date"][:10],
         )
-        print(sprint_infos, d)
         datas_sm = conn.epic_ticket(list(d), filtre=filtre, suffix=suffix)[0]
     # After extract
     now = datefile(date_file)
     datas_sm = prepare_data(project=project, suffix=suffix, date_file=now)[1]
 
     # print(t)
-    sums = []
+    sums: list[float] = []
     for dd in d:
         if dd <= now:
             sum = 0
@@ -1011,7 +1038,7 @@ def burndown(
                     sum += int(ticket["timeestimate"])
             sums.append(sum // 3600)
     b = (
-        Burndown(title=project + " " + sprint, start_is_max=True, indicators=False)
+        Burndown(title=f"{project} {sprint}", start_is_max=True, indicators=False)
         .dates(["Start"] + [dd[5:7] + "/" + dd[8:10] for dd in d[1:]])
         .values(sums)
         .build()

@@ -1,12 +1,15 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 from math import pi
+from typing import Sequence
+
+from matplotlib.projections.polar import PolarAxes
 
 from charts.chart import Chart
 
 
 def calc(data):
-    if data.values[0] in ("First", "Temps 1"):
+    if isinstance(type(data.values[0]), str):
         return data
     r = []
     for i in data.values:
@@ -16,32 +19,12 @@ def calc(data):
 
 class Radar(Chart):
     def build(self, df: pd.DataFrame):
-        # Set data
-        # df = pd.DataFrame({
-        #     'group': ['First', 'Second'],
-        #     'Easy to release': [2, 2],
-        #     'Delivering value': [1, (3*3+2)/4],
-        #     'Support': [2, 3],
-        #     'Speed': [2, (3 + 3*2)/4],
-        #     'Teamwork': [(3*3 + 2.5)/4, (6+2.5+2)/4],
-        #     'Pawns or Player': [6/4, 2.5],
-        #     'Health of codebase': [7.5/3, 2.5],
-        #     'Suitable process': [2, (9+2.75)/4],
-        #     'Learning': [8/3, 10/4],
-        #     'Mission': [(4*3+1.5)/5, (3 + 3*2)/4],
-        #     'Fun': [(3+2+1.5+1+1)/5, 2.5],
-        #     'Vision claire global sprint planning': [1, 3],
-        #     'S@M': [11/4, (6+4+1.5)/5],
-        # })
-
         df = df.apply(calc)
-        # print(df.tail(15))
-        # exit(0)
 
         # ------- PART 1: Create background
 
         # number of variable
-        categories = list(df)[1:]
+        categories: Sequence[str] = tuple(df)[2:]  # type: ignore
         n_categories = len(categories)
 
         # What will be the angle of each axis in the plot? (we divide the plot / number of variable)
@@ -50,7 +33,7 @@ class Radar(Chart):
 
         # Initialise the spider plot
         plt.figure(figsize=(10, 10))
-        ax = plt.subplot(111, polar=True)
+        ax: PolarAxes = plt.subplot(111, polar=True)  # type: ignore
 
         # If you want the first axis to be on top:
         ax.set_theta_offset(pi / 2)
@@ -68,38 +51,23 @@ class Radar(Chart):
 
         # Plot each individual = each line of the data
         # I don't make a loop, because plotting more than 3 groups makes the chart unreadable
-
-        # Ind1
-        values = df.loc[0].drop("group").values.flatten().tolist()
-        values += values[:1]
-        # ax.plot(angles, values, linewidth=1, linestyle='solid', label="Initial")
-        ax.plot(angles, values, linewidth=1, linestyle="solid", label="Temps1")
-        ax.fill(angles, values, "b", alpha=0.1)
-
-        # Ind2
-        # values = df.loc[1].drop('group').values.flatten().tolist()
-        # values += values[:1]
-        # ax.plot(angles, values, linewidth=1, linestyle='solid', label="Itération 16")
-        # ax.fill(angles, values, 'r', alpha=0.1)
+        for i in df.index:
+            loc = df.loc[i]
+            values = loc.drop("group").drop("color").to_numpy().flatten().tolist()
+            values += values[:1]
+            ax.plot(angles, values, linewidth=1, linestyle="solid", label=loc.group)
+            ax.fill(angles, values, loc.color, alpha=0.1)
 
         # Add legend
         plt.legend(loc="upper right", bbox_to_anchor=(0.1, 0.1))
         return self
 
-    # def save(self, filepath: str = 'tmp/radar_health_check.png', _format: str = 'png'):
-    #     # bytes_io_img = BytesIO()
-    #     # plt.savefig(bytes_io_img, format='png', dpi=50)
-    #     # bytes_io_img.seek(0)
-    #     # return b64encode(bytes_io_img.read()).decode("utf-8")
-    #     plt.savefig(filepath, format=_format, dpi=50)
-    #     return self
-
 
 def test_squad_health_check():
     df = pd.DataFrame(
         {
-            # 'group': ['First', 'Second'],
             "group": ["First"],
+            "color": ["b"],
             "Délivrer de la valeur": ((3, 4, 0),),
             "Facile à déployer": ((3, 4, 0),),
             "Amusant": ((6, 0, 0),),
@@ -121,6 +89,7 @@ def test_kanban():
         {
             # 'group': ['First', 'Second'],
             "group": ["Temps 1", "Temps 2"],
+            "color": ["b", "r"],
             "Visualiser": ((3, 4, 0), (6, 4, 0)),
             "Limiter le travail en cours": ((6, 0, 0), (7, 4, 0)),
             "Gérer et mesurer le flux de travail": ((7, 0, 0), (8, 4, 0)),
@@ -132,5 +101,6 @@ def test_kanban():
             "S'améliorer de manière collaborative": ((0, 4.5, 0.5), (2, 4, 0)),
         }
     )
-    # Radar().build(df).show().save('tmp/radar_health_check.png')
+    # Radar().build(df).save("tmp/radar_health_check.png").show()
     Radar().build(df).save("tmp/radar_health_check.png")
+    # Radar().build(df).show()

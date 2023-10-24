@@ -21,7 +21,7 @@ import win32clipboard
 #  Convenience functions to do the most common operation
 
 
-def has_html():
+def has_html() -> bool:
     """
     Return True if there is a Html fragment in the clipboard..
     """
@@ -40,7 +40,7 @@ def get_html():
         return None
 
 
-def put_html(fragment, source=None):
+def put_html(fragment, source=None) -> None:
     """
     Put the given fragment into the clipboard.
     Convenience function to do the most common operation
@@ -67,24 +67,24 @@ class HtmlClipboard:
     )
 
     MARKER_BLOCK_EX = (
-        "Version:(\S+)\s+"
-        "StartHTML:(\d+)\s+"
-        "EndHTML:(\d+)\s+"
-        "StartFragment:(\d+)\s+"
-        "EndFragment:(\d+)\s+"
-        "StartSelection:(\d+)\s+"
-        "EndSelection:(\d+)\s+"
-        "SourceURL:(\S+)"
+        r"Version:(\S+)\s+"
+        r"StartHTML:(\d+)\s+"
+        r"EndHTML:(\d+)\s+"
+        r"StartFragment:(\d+)\s+"
+        r"EndFragment:(\d+)\s+"
+        r"StartSelection:(\d+)\s+"
+        r"EndSelection:(\d+)\s+"
+        r"SourceURL:(\S+)"
     )
     MARKER_BLOCK_EX_RE = re.compile(MARKER_BLOCK_EX)
 
     MARKER_BLOCK = (
-        "Version:(\S+)\s+"
-        "StartHTML:(\d+)\s+"
-        "EndHTML:(\d+)\s+"
-        "StartFragment:(\d+)\s+"
-        "EndFragment:(\d+)\s+"
-        "SourceURL:(\S+)"
+        r"Version:(\S+)\s+"
+        r"StartHTML:(\d+)\s+"
+        r"EndHTML:(\d+)\s+"
+        r"StartFragment:(\d+)\s+"
+        r"EndFragment:(\d+)\s+"
+        r"SourceURL:(\S+)"
     )
     MARKER_BLOCK_RE = re.compile(MARKER_BLOCK)
 

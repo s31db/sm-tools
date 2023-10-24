@@ -6,7 +6,7 @@ from configparser import ConfigParser, SectionProxy
 import os
 
 
-def config(path: str = None) -> ConfigParser:
+def config(path: str | None = None) -> ConfigParser:
     if path is None:
         path = os.path.expanduser("~/config_sm_tools.ini")
     conf = ConfigParser()
@@ -14,8 +14,8 @@ def config(path: str = None) -> ConfigParser:
     return conf
 
 
-SectionProxy.__getattr__ = SectionProxy.__getitem__
-ConfigParser.__getattr__ = (
+SectionProxy.__getattr__ = SectionProxy.__getitem__  # type: ignore
+ConfigParser.__getattr__ = (  # type: ignore
     lambda self, key: ConfigParser.defaults(self).get(key)
     if key in ConfigParser.defaults(self)
     else ConfigParser.__getitem__(self, key)
@@ -23,7 +23,7 @@ ConfigParser.__getattr__ = (
 
 
 def test_config():
-    c = config("tests/test_ressources/test_config.ini")
+    c = config("tests/test_resources/test_config.ini")
     assert c["PROJECT_1"]["path_project"] == "/PROJECT_1"
     tmp = "C:/tmp"
     assert c["PROJECT_1"]["path_tmp"] == tmp

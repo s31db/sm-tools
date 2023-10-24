@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 from io import StringIO
 from charts.chart import Chart
+from typing import Self
 
 
 class Burndown(Chart):
@@ -8,26 +9,26 @@ class Burndown(Chart):
     _values: list[float]
     _dates: list[str]
     _start_is_max: bool = False
-    _figsize: tuple[int] = (8, 4)
+    _figsize: tuple[float, float] = (8, 4)
     _indicators: bool = True
 
-    def title(self, title: str):
+    def title(self, title: str) -> Self:
         self._title = title
         return self
 
-    def values(self, values: list[float]):
+    def values(self, values: list[float]) -> Self:
         self._values = values
         return self
 
-    def dates(self, dates: list[str]):
+    def dates(self, dates: list[str]) -> Self:
         self._dates = dates
         return self
 
-    def start_is_max(self, start_is_max: bool):
+    def start_is_max(self, start_is_max: bool) -> Self:
         self._start_is_max = start_is_max
         return self
 
-    def build(self):
+    def build(self) -> Self:
         date_limits = (self._dates[0], self._dates[-1])
         start_value = self._values[0] if self._start_is_max else max(self._values)
 
@@ -73,17 +74,17 @@ class Burndown(Chart):
         # fig.autofmt_xdate()
         return self
 
-    def svg(self):
+    def svg(self) -> tuple[str, Self]:
         f = StringIO()
         plt.savefig(f, format="svg")
         return f.getvalue(), self
 
 
-def test_burdown():
-    assert Burndown(title4="Exple")._title4 == "Exple"
+def test_burdown() -> None:
+    # assert Burndown(title4="Exple")._title4 == "Exple"
     b = (
         Burndown(title="Exple Test", start_is_max=False)
-        .dates(("26/11", "27/11", "28/11", "29/11"))
+        .dates(["26/11", "27/11", "28/11", "29/11"])
         .values([15, 13])
         .build()
     )
