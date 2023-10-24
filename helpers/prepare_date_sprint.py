@@ -11,9 +11,9 @@ def sprint_dates(
     weeks: int = 1,
     frm: str = "%Y-%m-%d",
     now: bool = False,
-    limit: str = None,
-    end_date: str = None,
-) -> Generator[date, None, None]:
+    limit: str | None = None,
+    end_date: str | None = None,
+) -> Generator[str, None, None]:
     d = date.fromisoformat(start_date)
     for i in range((7 * weeks) + 1):
         if d.weekday() < 5 and not JoursFeries.is_bank_holiday(d):
@@ -28,8 +28,8 @@ def sprint_dates(
 
 
 def add_dates(
-    d, frm: str, limit_date: date, end_date: date
-) -> Generator[date, None, None]:
+    d, frm: str, limit_date: date | None, end_date: date
+) -> Generator[str, None, None]:
     while d <= end_date:
         if limit_date is None or d <= limit_date:
             if d.weekday() < 5 and not JoursFeries.is_bank_holiday(d):

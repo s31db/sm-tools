@@ -21,7 +21,7 @@ class Scatter(Chart):
     _style_order: list | None
     _palette: str | None
     _ncol_legend: int | None
-    _filtre: str = None
+    _filtre: str | None = None
 
     def by_date(self):
         self._x = "date"

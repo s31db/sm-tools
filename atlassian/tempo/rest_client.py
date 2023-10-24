@@ -4,7 +4,7 @@ import logging
 import requests
 from requests.exceptions import HTTPError
 from json import dumps
-from six.moves.urllib.parse import urlencode
+from urllib.parse import urlencode
 
 log = logging.getLogger()
 

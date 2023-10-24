@@ -2,8 +2,8 @@ import json
 from sm import jiraconf
 
 
-def presence(datas_sm: dict) -> dict:
-    pres = {}
+def presence(datas_sm: dict[str, dict[str, dict[str, tuple[str, ...]]]]) -> dict:
+    pres: dict = {}
     for v in datas_sm["Presence"].values():
         for member in v["member"]:
             if member in pres:
@@ -16,7 +16,7 @@ def presence(datas_sm: dict) -> dict:
 
 
 def jours_presence(pres: dict) -> None:
-    js = {"lundi": [], "mardi": [], "mercredi": [], "jeudi": [], "vendredi": []}
+    js: dict = {"lundi": [], "mardi": [], "mercredi": [], "jeudi": [], "vendredi": []}
     for j in ["lundi", "mardi", "mercredi", "jeudi", "vendredi"]:
         for m, jours in pres.items():
             if j in jours:
@@ -41,8 +41,8 @@ def no_link(pres: dict) -> None:
 
 def flexoffice() -> None:
     c = jiraconf()
-    with open(c["Common"]["path_data"] + "teams.json", "r", encoding="utf-8") as fp:
-        datas_sm = json.load(fp)
+    with open(c["Common"]["path_data"] + "teams.json", "r", encoding="utf-8") as fp:  # type: ignore
+        datas_sm: dict[str, dict[str, dict[str, tuple[str, ...]]]] = json.load(fp)
     pres = presence(datas_sm)
     jours_presence(pres)
     no_link(pres)

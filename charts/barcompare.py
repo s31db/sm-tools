@@ -1,29 +1,30 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from charts.chart import Chart
+from typing import Self
 
 
 class Barcompare(Chart):
-    _nodes: dict
+    _nodes: dict[str, dict[str, float]]
     _width_bar: float = 0.3  # the width of the bars
     _ylabel: str = "Score"
     _rotation: float | None = None
 
-    def nodes(self, nodes: dict):
+    def nodes(self, nodes: dict[str, dict[str, float]]) -> Self:
         self._nodes = nodes
         return self
 
-    def width_bar(self, width_bar: float):
+    def width_bar(self, width_bar: float) -> Self:
         self._width_bar = width_bar
         return self
 
-    def ylabel(self, ylabel: str):
+    def ylabel(self, ylabel: str) -> Self:
         self._ylabel = ylabel
         return self
 
-    def build(self):
+    def build(self) -> Self:
         fig, ax = plt.subplots()
-        values = {}
+        values: dict[str, list[float]] = {}
         for node in self._nodes.values():
             for label, v in node.items():
                 if label in values:
@@ -50,7 +51,7 @@ class Barcompare(Chart):
         fig.tight_layout()
         return self
 
-    def show(self):
+    def show(self) -> Self:
         plt.show()
         return self
 

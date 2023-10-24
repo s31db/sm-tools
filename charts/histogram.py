@@ -1,12 +1,13 @@
 from charts.chart import Chart
 import pandas as pd
 import seaborn as sns
+from typing import Self
 
 
 class Histogram(Chart):
     _values: dict
 
-    def build(self):
+    def build(self) -> Self:
         df = pd.DataFrame(self._values.values())
         df = df.sort_values(by=["date", "estimate"])
         sns.displot(

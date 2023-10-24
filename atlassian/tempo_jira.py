@@ -19,6 +19,7 @@ class Tempo:
     _trc: bool = False
     _tempo_exclude: str
     _tempo_replace: dict
+    _token_auth: str
 
     def __init__(self, **kwargs):
         for key, value in kwargs.items():
@@ -35,8 +36,8 @@ class Tempo:
         self, start_date: str, date_to: str, frm: str = "%Y-%m-%d", file: bool = True
     ) -> "atlassian.tempo_jira.Tempo":
         # https://www.tempo.io/server-api-documentation/planner#tag/Allocation/operation/getAllocations
-        teams_datas = {team: {} for team in self._teams}
-        plan = {}
+        teams_datas: dict = {team: {} for team in self._teams}
+        plan: dict = {}
         self.tempo_teams(start_date, teams_datas)
         members_used = []
         for team, members in teams_datas.items():

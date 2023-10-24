@@ -1,4 +1,4 @@
-from jira import JIRA
+from jira import JIRA, Issue
 import logging
 import statistics
 from decimal import Decimal
@@ -6,6 +6,7 @@ import math
 import json
 from datetime import datetime
 from operator import attrgetter
+from jira.client import ResultList
 
 Y_M_D = "%Y-%m-%d"
 SUPER = "super"
@@ -16,7 +17,7 @@ SUPER_SUPER_NAME = "super.super.name"
 SUPER_SUPER_STATUS = "super.super.status"
 
 
-def to_hour(second: int, minus: int = None):
+def to_hour(second: int, minus: int | None = None):
     if second and minus:
         return second - minus / 3600
     elif second:
@@ -27,12 +28,12 @@ def to_hour(second: int, minus: int = None):
 
 def add_super(
     date: str,
-    ticket_super_super: str,
+    ticket_super_super: str | None,
     epics_date: dict,
-    epics_no_rights: list[str],
-    ticket_super: str,
-    ticket: str,
-    us_date: str,
+    epics_no_rights: dict,
+    ticket_super: str | None,
+    ticket: Issue,
+    us_date: dict,
     _super: dict,
 ):
     # if 'type' in _super['super'] and _super['super']['type'] == 'Epic' and
@@ -111,7 +112,7 @@ def add_super(
             and "type" in _super["super"]
             and _super["super"]["type"] == "Sprint"
         ):
-            us_date[date][ticket.key][SUPER] = ticket_super + "_" + super_super_id
+            us_date[date][ticket.key][SUPER] = f"{ticket_super}_{super_super_id}"
 
 
 def change_super(
@@ -190,7 +191,7 @@ def change_super(
 
 
 class JiraSM:
-    _jira: JIRA = None
+    _jira: JIRA
     _project: str
     _url_server: str
     _fields_change_ignored: list[str]
@@ -226,17 +227,19 @@ class JiraSM:
         self,
         jql_str: str,
         max_results: int = 10000,
-        fields: str = None,
-        expand: str = None,
+        fields: str | list[str] | None = None,
+        expand: str | None = None,
         trc: bool = False,
-    ):
+    ) -> ResultList[Issue]:
         if trc or self._trc:
             print(jql_str)
             from urllib.parse import quote_plus
 
             print(self._url_server + "/issues/?jql=" + quote_plus(jql_str))
-        return self._jira.search_issues(
-            jql_str=jql_str, maxResults=max_results, fields=fields, expand=expand
+        return ResultList[Issue](
+            self._jira.search_issues(
+                jql_str=jql_str, maxResults=max_results, fields=fields, expand=expand
+            )
         )
         # results = self._jira.search_issues(jql_str=jql_str, maxResults=maxResults, fields=fields, expand=expand)
         # for result in results:
@@ -370,8 +373,9 @@ class JiraSM:
         # print(tasks)
 
     def remaining(self, cleaner: bool = False):
-        fields = "summary, assignee, aggregatetimeestimate, status"
-        filters = {
+        fields: str = "summary, assignee, aggregatetimeestimate, status"
+        orders: str = "ORDER BY assignee ASC, remainingEstimate DESC"
+        filters: dict[str, str] = {
             "remaining": "and remainingEstimate > 0",
             "doneOrCancel": "and (status = DONE or status = CANCELED)",
             "subtaskdone": "and status in (Done, Closed) and issuetype in (ST-Dev, ST-Doc, ST-Tst)",
@@ -391,11 +395,7 @@ class JiraSM:
         )
         with open(path_file, "w", encoding="utf-8") as f:
             for task in self.search(
-                self._filter_project()
-                + filters["subtaskdone"]
-                + ""
-                + filters["remaining"]
-                + "  ORDER BY assignee ASC, remainingEstimate DESC",
+                jql_str=f"{self._filter_project()}{filters['subtaskdone']}{filters['remaining']} {orders}",
                 max_results=False,
                 fields=fields,
                 trc=True,
@@ -524,9 +524,9 @@ class JiraSM:
 
     def epic_ticket(
         self, dates: list, filtre: str = "", suffix: str = "", file: bool = True
-    ) -> [dict, str]:
-        epics_date = {}
-        us_date = {}
+    ) -> tuple[dict, str]:
+        epics_date: dict = {}
+        us_date: dict = {}
         now = datetime.now().strftime(Y_M_D)
         (
             epics_changelogs,
@@ -537,28 +537,25 @@ class JiraSM:
 
         self._prepare_epics(dates, epics_changelogs, epics_date, epics_fields, now)
 
-        epics_no_rights = {}
+        epics_no_rights: dict = {}
         type_tickets = (
             'AND type in ("' + '", "'.join(self._type_base) + '") '
             if self._type_base
             else ""
         )
         for ticket in self.search(
-            jql_str=self._filter_project()
-            + type_tickets
-            + filtre
-            + " ORDER BY key asc",
+            jql_str=f"{self._filter_project()}{type_tickets}{filtre} ORDER BY key asc",
             max_results=False,
             expand="changelog",
             trc=False,
             fields=", ".join(tickets_fields),
         ):
             created = ticket.fields.created[:10]
-            ticket_super = attrgetter(self._super["field"])(ticket.fields)
+            ticket_super: str = attrgetter(self._super["field"])(ticket.fields)
             if SUPER in self._super:
-                ticket_super_super = attrgetter(self._super[SUPER]["field"])(
-                    ticket.fields
-                )
+                ticket_super_super: str | None = attrgetter(
+                    self._super[SUPER]["field"]
+                )(ticket.fields)
             else:
                 ticket_super_super = None
             # if 'type' in self._super and self._super['type'] == 'Epic':
@@ -603,12 +600,12 @@ class JiraSM:
         created,
         dates,
         epics_date: dict,
-        epics_no_rights,
+        epics_no_rights: dict,
         now,
         ticket,
-        ticket_super,
-        ticket_super_super,
-        us_date,
+        ticket_super: str | None,
+        ticket_super_super: str | None,
+        us_date: dict,
     ):
         for date in dates:
             if created <= date <= now:
@@ -728,7 +725,7 @@ class JiraSM:
                                 ] = changelog_date
 
     def _prepare_epic_ticket(
-        self, dates: list, epics_date: dict, now: str, us_date: dict
+        self, dates: list[str], epics_date: dict, now: str, us_date: dict
     ):
         for date in dates:
             if date <= now:
@@ -782,7 +779,7 @@ class JiraSM:
 
     def sprint_actif(self):
         for sprint in self._jira.sprints(self._board_id):
-            if sprint.state != "future":
+            if sprint.state not in ("closed", "future"):
                 sprint_id = sprint.id
                 sprint_infos = {
                     "start_date": sprint.activatedDate,
@@ -794,14 +791,14 @@ class JiraSM:
 
     def workload(self, start_date: str, date_to: str, file: bool = True):
         workloads = []
-        # jql_str = f"project={self._project} and worklogDate>={start_date} and worklogDate <={date_to} ORDER BY Rank ASC"
+        # jql_str = f"project={self._project} and ..."
         jql_str = (
             f"worklogDate>={start_date} and worklogDate <={date_to} ORDER BY Rank ASC"
         )
+
         for task in self.search(
-            jql_str=jql_str, max_results=None, fields="worklog, summary"
+            jql_str=jql_str, max_results=False, fields="worklog, summary"
         ):
-            # print(task.key)
             if task.fields.worklog.total > task.fields.worklog.maxResults:
                 worklogs = self._jira.worklogs(task.key)
             else:
@@ -828,12 +825,10 @@ class JiraSM:
                 json.dump(workloads, f, indent=2)
         return workloads
 
-    def tree_jira(
-        self, dates: list, filtre: str = "", suffix: str = "", file: bool = True
-    ):
-        us_date = self.epic_ticket(
-            dates=dates, filtre=filtre, suffix=suffix, file=False
-        )[0]
+    def tree_jira(self, dates: list, filtre: str = "", suffix: str = ""):
+        # us_date = self.epic_ticket(
+        #     dates=dates, filtre=filtre, suffix=suffix, file=False
+        # )[0]
         tickets_fields = ["parent", "created"]
         for ticket in self.search(
             jql_str=self._filter_project() + filtre + " ORDER BY key asc",

@@ -2,45 +2,46 @@
 import matplotlib.ticker as ticker
 import matplotlib.pyplot as plt
 import math
-from chart import Chart
+from charts.chart import Chart
+from typing import Self
 
 
 class Pareto(Chart):
     _title: str = "Pareto"
-    _values: dict
+    _values: dict[str, int]
     _y_label: str = "nb items"
-    _pareto_items: dict
+    _pareto_items: dict[str, dict[str, int | float]]
     _percent: float = 80
-    _figsize: tuple[int] = (8, 6)
-    _important_values: dict
+    _figsize: tuple[int, int] = (8, 6)
+    _important_values: dict[str, dict[str, int | float]]
     _margin: float = 0.25
 
-    def title(self, title: str):
+    def title(self, title: str) -> Self:
         self._title = title
         return self
 
-    def y_label(self, y_label: str):
+    def y_label(self, y_label: str) -> Self:
         self._y_label = y_label
         return self
 
-    def values(self, values: dict):
+    def values(self, values: dict[str, int]) -> Self:
         self._values = values
         return self
 
-    def percent(self, percent: float):
+    def percent(self, percent: float) -> Self:
         self._percent = percent
         return self
 
-    def margin(self, margin: float):
+    def margin(self, margin: float) -> Self:
         self._margin = margin
         return self
 
-    def build(self):
+    def build(self) -> Self:
         self._values = dict(sorted(self._values.items(), key=lambda item: -item[1]))
         total = sum(analyse.values())
         self._pareto_items = {}
         per_current = 0
-        per_sum_previous = 0
+        per_sum_previous: float = 0
         self._important_values = {}
 
         for key, value in self._values.items():
@@ -106,9 +107,12 @@ class Pareto(Chart):
         plt.subplots_adjust(bottom=0.28)
         return self
 
-    def build_percent(self, percent, color, lw: float = 1, linestyle: str = "--"):
+    def build_percent(
+        self, percent, color, lw: float = 1, linestyle: str = "--"
+    ) -> Self:
         nb = -1
-        nearly_previous = nearly = 0
+        nearly_previous: float = 0
+        nearly: float = 0
         for value in self._pareto_items.values():
             # Nearly to 80 %
             # if (per_sum_previous < 75 < per_sum) or per_sum <= 80:
