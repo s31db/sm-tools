@@ -16,7 +16,6 @@ original: http://code.activestate.com/recipes/474121/
 import re
 import time
 import win32clipboard
-from typing import Self
 
 # ---------------------------------------------------------------------------
 #  Convenience functions to do the most common operation

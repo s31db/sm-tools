@@ -9,7 +9,7 @@ from charts.chart import Chart
 
 
 def calc(data):
-    if type(data.values[0]) is str:
+    if isinstance(type(data.values[0]), str):
         return data
     r = []
     for i in data.values:

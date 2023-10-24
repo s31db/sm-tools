@@ -6,7 +6,7 @@ from charts.burndown import Burndown
 from helpers.prepare_date_sprint import sprint_dates
 import json
 from config import config
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 from prepare_data import tree
 import yaml
 from yaml.loader import SafeLoader
@@ -162,8 +162,8 @@ def workload(project: str, start_date: str, date_to: str | None):
         conn.workload(start_date=start_date, date_to=datefile(date_to))
 
 
-def fmt_date_file(date: str):
-    return date.replace("-", "")
+def fmt_date_file(date_file: str):
+    return date_file.replace("-", "")
 
 
 def workload_analyse(
@@ -801,9 +801,9 @@ def float_to_int(value: float):
     return value
 
 
-def weeks_of_mounth(da: str):
-    date = datetime.strptime(da, Y_M_D)
-    return str(date.isocalendar()[1])
+def weeks_of_mounth(da: str) -> str:
+    date_weeks: datetime = datetime.strptime(da, Y_M_D)
+    return str(date_weeks.isocalendar()[1])
 
 
 def time_nb(project: str, suffix: str = "", date_file: str | None = None):
@@ -1008,7 +1008,6 @@ def burndown(
     project: str,
     suffix: str = "",
     date_file: str | None = None,
-    filtre: str = "",
 ):
     data_conf = jiraconf()
     conf = data_conf["projects"][project]
@@ -1016,7 +1015,7 @@ def burndown(
     with JiraSM(project=project, **conf).conn() as conn:
         sprint_id, sprint_infos = conn.sprint_actif()
         sprint: str = sprint_infos["name"]
-        filtre = " and sprint={0} ".format(sprint_id)
+        filtre = f" and sprint={sprint_id} "
         d = [sprint_infos["start_date"]]
         d += dates(
             sprint_infos["start_date"][:10],

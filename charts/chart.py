@@ -4,7 +4,7 @@ from base64 import b64encode
 from io import BytesIO
 from PIL import Image
 from HtmlClipboard import put_html
-from typing import Self, Dict
+from typing import Self
 
 
 def send_to_clipboard(clip_type: int, data: bytes) -> None:
@@ -17,7 +17,7 @@ def send_to_clipboard(clip_type: int, data: bytes) -> None:
 class Chart:
     _title: str
 
-    def __init__(self, *args: str | str, **kwargs: str | bool) -> None:
+    def __init__(self, *args: str, **kwargs: str | bool) -> None:
         if args:
             self._title = args[0]
         for key, value in kwargs.items():
