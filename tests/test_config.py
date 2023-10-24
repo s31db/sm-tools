@@ -1,4 +1,5 @@
 from unittest import TestCase
+
 # import hypothesis.strategies as st
 # from hypothesis import given, example
 from config import config
@@ -7,6 +8,7 @@ from config import config
 # class Test(TestCase):
 #     def test_config(self):
 #         self.fail()
+
 
 class TestConfig(TestCase):
     # @given(fields=st.lists(st.text(), min_size=1, max_size=10))
@@ -24,10 +26,10 @@ class TestConfig(TestCase):
     #     assert c.PROJECT_2.path_project == '/PROJECT_2'
 
     def test_config(self):
-        c = config('tests/test_resources/test_config.ini')
-        assert c['PROJECT_1']['path_project'] == '/PROJECT_1'
-        assert c['PROJECT_1']['path_tmp'] == 'C:/tmp'
-        assert c.PROJECT_1['path_tmp'] == 'C:/tmp'
-        assert c.PROJECT_1.path_tmp == 'C:/tmp'
-        assert c['PROJECT_2'].path_tmp == 'C:/tmp'
-        assert c.PROJECT_2.path_project == '/PROJECT_2'
+        c = config("tests/test_resources/test_config.ini")
+        assert c["PROJECT_1"]["path_project"] == "/PROJECT_1"
+        assert c["PROJECT_1"]["path_tmp"] == "C:/tmp"
+        assert c.PROJECT_1["path_tmp"] == "C:/tmp"
+        assert c.PROJECT_1.path_tmp == "C:/tmp"
+        assert c["PROJECT_2"].path_tmp == "C:/tmp"
+        assert c.PROJECT_2.path_project == "/PROJECT_2"

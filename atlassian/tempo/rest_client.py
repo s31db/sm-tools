@@ -10,10 +10,18 @@ log = logging.getLogger()
 
 
 class RestAPIClient(object):
-    default_headers = {'Content-Type': 'application/json', 'Accept': 'application/json'}
+    default_headers = {"Content-Type": "application/json", "Accept": "application/json"}
     response = None
 
-    def __init__(self, url="", auth_token=None, timeout=None, verify_ssl=None, proxies=None, advanced_mode=None):
+    def __init__(
+        self,
+        url="",
+        auth_token=None,
+        timeout=None,
+        verify_ssl=None,
+        proxies=None,
+        advanced_mode=None,
+    ):
         self._url = url
         self._auth_token = auth_token
         self._timeout = timeout
@@ -39,7 +47,6 @@ class RestAPIClient(object):
         self._session.headers.update({key: value})
 
     def _response_handler(self, response):
-
         if self._advanced_mode:
             return response
 
@@ -49,7 +56,7 @@ class RestAPIClient(object):
             return response.json()
 
         except HTTPError as http_err:
-            log.error(f'HTTP error occurred: {http_err.response.text}')
+            log.error(f"HTTP error occurred: {http_err.response.text}")
             raise SystemExit(http_err)
         except Exception as err:
             log.error(err)
@@ -59,16 +66,26 @@ class RestAPIClient(object):
     def url_joiner(url, path, trailing=None):
         url_link = path
         if url:
-            url_link = '/'.join(s.strip('/') for s in [url, path])
+            url_link = "/".join(s.strip("/") for s in [url, path])
         if trailing:
-            url_link += '/'
+            url_link += "/"
         return url_link
 
     def close(self):
         return self._session.close()
 
-    def _request(self, method='GET', path='/', data=None, json=None, flags=None, params=None, headers=None,
-                 files=None, trailing=None):
+    def _request(
+        self,
+        method="GET",
+        path="/",
+        data=None,
+        json=None,
+        flags=None,
+        params=None,
+        headers=None,
+        files=None,
+        trailing=None,
+    ):
         """
 
         :param method:
@@ -84,11 +101,11 @@ class RestAPIClient(object):
         """
         url = self.url_joiner(self._url, path, trailing)
         if params or flags:
-            url += '?'
+            url += "?"
         if params:
             url += urlencode(params)
         if flags:
-            url += ('&' if params else '') + '&'.join(flags)
+            url += ("&" if params else "") + "&".join(flags)
         if files is None:
             data = None if not data else dumps(data)
 
@@ -102,14 +119,27 @@ class RestAPIClient(object):
             timeout=self._timeout,
             verify=self._verify_ssl,
             files=files,
-            proxies=self._proxies
+            proxies=self._proxies,
         )
-        response.encoding = 'utf-8'
+        response.encoding = "utf-8"
 
-        log.debug("HTTP: {} {} -> {} {}".format(method, path, response.status_code, response.reason))
+        log.debug(
+            "HTTP: {} {} -> {} {}".format(
+                method, path, response.status_code, response.reason
+            )
+        )
         return response
 
-    def get(self, path, data=None, flags=None, params=None, headers=None, not_json_response=None, trailing=None):
+    def get(
+        self,
+        path,
+        data=None,
+        flags=None,
+        params=None,
+        headers=None,
+        not_json_response=None,
+        trailing=None,
+    ):
         """
         Get request based on the python-requests module. You can override headers, and also, get not json response
         :param path:
@@ -121,19 +151,52 @@ class RestAPIClient(object):
         :param trailing: OPTIONAL: for wrap slash symbol in the end of string
         :return:
         """
-        response = self._request('GET', path=path, flags=flags, params=params, data=data, headers=headers,
-                                 trailing=trailing)
+        response = self._request(
+            "GET",
+            path=path,
+            flags=flags,
+            params=params,
+            data=data,
+            headers=headers,
+            trailing=trailing,
+        )
 
         return self._response_handler(response)
 
-    def post(self, path, data=None, json=None, headers=None, files=None, params=None, trailing=None):
-        response = self._request('POST', path=path, data=data, json=json, headers=headers, files=files, params=params,
-                                 trailing=trailing)
+    def post(
+        self,
+        path,
+        data=None,
+        json=None,
+        headers=None,
+        files=None,
+        params=None,
+        trailing=None,
+    ):
+        response = self._request(
+            "POST",
+            path=path,
+            data=data,
+            json=json,
+            headers=headers,
+            files=files,
+            params=params,
+            trailing=trailing,
+        )
         return self._response_handler(response)
 
-    def put(self, path, data=None, headers=None, files=None, trailing=None, params=None):
-        response = self._request('PUT', path=path, data=data, headers=headers, files=files, params=params,
-                                 trailing=trailing)
+    def put(
+        self, path, data=None, headers=None, files=None, trailing=None, params=None
+    ):
+        response = self._request(
+            "PUT",
+            path=path,
+            data=data,
+            headers=headers,
+            files=files,
+            params=params,
+            trailing=trailing,
+        )
         return self._response_handler(response)
 
     def delete(self, path, data=None, headers=None, params=None, trailing=None):
@@ -142,5 +205,12 @@ class RestAPIClient(object):
         :rtype: dict
         :return: Empty dictionary to have consistent interface.
         """
-        response = self._request('DELETE', path=path, data=data, headers=headers, params=params, trailing=trailing)
+        response = self._request(
+            "DELETE",
+            path=path,
+            data=data,
+            headers=headers,
+            params=params,
+            trailing=trailing,
+        )
         return self._response_handler(response)
