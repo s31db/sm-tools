@@ -1005,28 +1005,31 @@ def re_tree(project: str, start_date: str, filtre: str = "", suffix: str = ""):
 
 
 def burndown(
-    project: str,
-    suffix: str = "",
-    date_file: str | None = None,
+    project: str, suffix: str = "", date_file: str | None = None, previous: bool = False
 ):
     data_conf = jiraconf()
     conf = data_conf["projects"][project]
     conf["type_base"] = None
-    with JiraSM(project=project, **conf).conn() as conn:
-        sprint_id, sprint_infos = conn.sprint_actif()
-        sprint: str = sprint_infos["name"]
-        filtre = f" and sprint={sprint_id} "
-        d = [sprint_infos["start_date"]]
-        d += dates(
-            sprint_infos["start_date"][:10],
-            0,
-            now=False,
-            end_date=sprint_infos["end_date"][:10],
-        )
-        datas_sm = conn.epic_ticket(list(d), filtre=filtre, suffix=suffix)[0]
-    # After extract
-    now = datefile(date_file)
-    datas_sm = prepare_data(project=project, suffix=suffix, date_file=now)[1]
+    if date_file:
+        now = datefile(date_file)
+        datas_sm = prepare_data(project=project, suffix=suffix, date_file=now)[1]
+    else:
+        now = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        with JiraSM(project=project, **conf).conn() as conn:
+            if previous:
+                sprint_id, sprint_infos = conn.previous_sprint()
+            else:
+                sprint_id, sprint_infos = conn.sprint_actif()
+            sprint: str = sprint_infos["name"]
+            filtre = f" and sprint={sprint_id} "
+            d = [sprint_infos["start_date"]]
+            d += dates(
+                sprint_infos["start_date"][:10],
+                0,
+                now=False,
+                end_date=sprint_infos["end_date"][:10],
+            )
+            datas_sm = conn.epic_ticket(list(d), filtre=filtre, suffix=suffix)[0]
 
     # print(t)
     sums: list[float] = []
