@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Formulaire de Saisie avec Smileys</title>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='audit.css') }}"/>
+</head>
+<body>
+    <div id="message" style="display: none;" class="validation">
+        Formulaire soumis avec succès !
+    </div>
+<input type="text" id="user" name="user" placeholder="Nom d'utilisateur" maxlength="50" size="50" class="identifier"/>
+    
+<div id="audit-container">
+</div>
+
+<button id="submit-button" onclick="submitForm()">Soumettre</button>
+
+<div id="results-container"></div>
+
+<script src="{{ url_for('static', filename='audit.js') }}"></script>
+
+</body>
+</html>

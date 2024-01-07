@@ -1,0 +1,22 @@
+{
+  "valeurs": [
+    "Les individus et leurs interactions plus que les processus et les outils",
+    "Des logiciels opérationnels plus qu’une documentation exhaustive",
+    "La collaboration avec les clients plus que la négociation contractuelle",
+    "L’adaptation au changement plus que le suivi d’un plan"
+  ],
+  "principes": [
+    "Notre plus haute priorité est de satisfaire le client\nen livrant rapidement et régulièrement des fonctionnalités\nà grande valeur ajoutée.",
+    "Accueillez positivement les changements de besoins,\nmême tard dans le projet. Les processus Agiles\nexploitent le changement pour donner un avantage\ncompétitif au client.",
+    "Livrez fréquemment un logiciel opérationnel avec des\ncycles de quelques semaines à quelques mois et une\npréférence pour les plus courts.",
+    "Les utilisateurs ou leurs représentants et les\ndéveloppeurs doivent travailler ensemble quotidiennement\ntout au long du projet.",
+    "Réalisez les projets avec des personnes motivées.\nFournissez-leur l’environnement et le soutien dont ils\nont besoin et faites-leur confiance pour atteindre les\nobjectifs fixés.",
+    "La méthode la plus simple et la plus efficace pour\ntransmettre de l’information à l'équipe de développement\net à l’intérieur de celle-ci est le dialogue en face à face.",
+    "Un logiciel opérationnel est la principale mesure d’avancement.",
+    "Les processus Agiles encouragent un rythme de développement\nsoutenable. Ensemble, les commanditaires, les développeurs\net les utilisateurs devraient être capables de maintenir\nindéfiniment un rythme constant.",
+    "Une attention continue à l'excellence technique et\nà une bonne conception renforce l’Agilité.",
+    "La simplicité – c’est-à-dire l’art de minimiser la\nquantité de travail inutile – est essentielle.",
+    "Les meilleures architectures, spécifications et\nconceptions émergent d'équipes autoorganisées.",
+    "À intervalles réguliers, l'équipe réfléchit aux moyens\nde devenir plus efficace, puis règle et modifie son\ncomportement en conséquence."
+  ]
+}

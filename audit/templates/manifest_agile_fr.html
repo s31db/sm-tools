@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Formulaire de Saisie avec Smileys</title>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='manifest_agile.css') }}"/>
+</head>
+<body>
+    <div id="message" style="display: none;" class="validation">
+        Formulaire soumis avec succès !
+    </div>
+<input type="text" id="user" name="user" placeholder="Nom d'utilisateur" maxlength="50" size="50" class="identifier"/>
+<h2>Manifeste pour le développement Agile de logiciels</h2>
+
+<table id="values-table">
+    <thead>
+        <tr>
+            <th class="data-cell">Nous reconnaissons la valeur des seconds éléments, mais privilégions les premiers</th>
+            <th>😠</th>
+            <th>😟</th>
+            <th>😕</th>
+            <th>😐</th>
+            <th>😊</th>
+            <th>😄</th>
+            <th>😍</th>
+        </tr>
+    </thead>
+    <tbody id="values-table-body">
+        <!-- Le contenu du tableau sera ajouté ici dynamiquement -->
+    </tbody>
+</table>
+
+<h2>Principes sous-jacents au manifeste</h2>
+
+<table id="principles-table">
+    <thead>
+        <tr>
+            <th class="data-cell">Principes</th>
+            <th>😠</th>
+            <th>😟</th>
+            <th>😕</th>
+            <th>😐</th>
+            <th>😊</th>
+            <th>😄</th>
+            <th>😍</th>
+        </tr>
+    </thead>
+    <tbody id="principles-table-body">
+        <!-- Le contenu du tableau sera ajouté ici dynamiquement -->
+    </tbody>
+</table>
+
+<button id="submit-button" onclick="submitForm()">Soumettre</button>
+
+<div id="results-container"></div>
+
+<script src="{{ url_for('static', filename='manifest_agile.js') }}"></script>
+
+</body>
+</html>
