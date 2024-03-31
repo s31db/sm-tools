@@ -65,6 +65,7 @@ class MyServer(BaseHTTPRequestHandler):
         actions = {
             "Extract": None,
             "Burndown": None,
+            "Burndown_previous": None,
             "Cumulative": None,
             "Treemap": None,
             "TreemapEpic": None,
@@ -249,6 +250,12 @@ class MyServer(BaseHTTPRequestHandler):
                             self.wl(time_nb(project))
                         elif action == b"Burndown":
                             self.wl(burndown(project, suffix="sprint"))
+                        elif action == b"Burndown_previous":
+                            self.wl(
+                                burndown(
+                                    project, suffix="sprint_previous", previous=True
+                                )
+                            )
                         elif action == b"Worklog":
                             for line in worklog_plan_html(
                                 project=project,
