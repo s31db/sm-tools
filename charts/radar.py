@@ -9,7 +9,7 @@ from charts.chart import Chart
 
 
 def calc(data):
-    if isinstance(type(data.values[0]), str):
+    if isinstance(data.values[0], str):
         return data
     r = []
     for i in data.values:
@@ -102,5 +102,5 @@ def test_kanban():
         }
     )
     # Radar().build(df).save("tmp/radar_health_check.png").show()
-    Radar().build(df).save("tmp/radar_health_check.png")
-    # Radar().build(df).show()
+    # Radar().build(df).save("tmp/radar_health_check.png")
+    Radar().build(df).show()

@@ -1,34 +1,31 @@
+import logging
+
+from charts.chart import Chart
 import plotly.express as px
 from prepare_data import tree
 from plotly.graph_objs import Figure
 from base64 import b64encode
 import numpy
+from typing_extensions import Self
 
 
-class Treemap:
+class Treemap(Chart):
     _title: str = "Treemap"
     _global_parent: str = "Treemap"
     _nodes: dict
     fig: Figure
     _url_server: str
-    _colors: dict
+    _colors: dict[str, str]
     _path_data: str
+    _path_export: str
+    _text_template: str
+    _super: dict
 
-    def __init__(self, *args, **kwargs):
-        if args:
-            self._title = args[0]
-        for key, value in kwargs.items():
-            setattr(self, "_" + key, value)
-
-    def title(self, title: str):
-        self._title = title
-        return self
-
-    def nodes(self, nodes: dict):
+    def nodes(self, nodes: dict) -> Self:
         self._nodes = nodes
         return self
 
-    def build(self):
+    def build(self) -> Self:
         names = [self._global_parent]
         custom_data = [""]
         custom_data_statues = [""]
@@ -41,13 +38,23 @@ class Treemap:
         for key, value in self._nodes.items():
             custom_data.append(key)
             custom_data_statues.append(value["status"])
-            custom_data_types.append(value["type"])
-            names.append(value["name"])
+            if "type" in value:
+                custom_data_types.append(value["type"])
+            else:
+                custom_data_types.append("")
+            names.append(value["name"] if "name" in value else value["Name"])
             ids.append(key)
             if "status" in value and value["status"] is not None:
-                colors[key] = self._colors[value["status"]]
+                try:
+                    colors[key] = self._colors[value["status"]]
+                except KeyError:
+                    logging.error("Unknown status: %s", value["status"])
+                    colors[key] = "black"
             else:
-                colors[key] = "black"
+                if "colors" in self._super:
+                    colors[key] = self._super["colors"][key]
+                else:
+                    colors[key] = "black"
             if "father" in value:
                 parents.append(value["father"])
             else:
@@ -63,6 +70,27 @@ class Treemap:
                 else:
                     values.append(1)
 
+        self._text_template = (
+            "%{label}<br>%{value}<br>"
+            "<a href='" + self._url_server + "browse/%{customdata[0]}' "
+            "style='color: inherit'>"
+            "%{customdata[0]}</a><br>%{customdata[1]}<br>%{customdata[2]}<br>"
+        )
+
+        self._text_template = "toto"
+
+        self.figure(
+            colors,
+            [custom_data, custom_data_statues, custom_data_types],
+            ids,
+            names,
+            parents,
+            values,
+        )
+
+        return self
+
+    def figure(self, colors, custom_data, ids, names, parents, values) -> Figure:
         self.fig = px.treemap(
             names=names,
             parents=parents,
@@ -73,15 +101,8 @@ class Treemap:
             title=self._title,
             # color_continuous_scale='RdBu',
         )
-        self.fig.data[0].customdata = numpy.column_stack(
-            [custom_data, custom_data_statues, custom_data_types]
-        )
-        self.fig.data[0].texttemplate = (
-            "%{label}<br>%{value}<br>"
-            "<a href='" + self._url_server + "browse/%{customdata[0]}' "
-            "style='color: inherit'>"
-            "%{customdata[0]}</a><br>%{customdata[1]}<br>%{customdata[2]}<br>"
-        )
+        self.fig.data[0].customdata = numpy.column_stack(custom_data)
+        self.fig.data[0].texttemplate = self._text_template
         self.fig.update_traces(root_color="lightgrey")
         self.fig.update_layout(margin=dict(t=50, l=25, r=25, b=25), font={"size": 15})
         self.fig.update_layout(
@@ -90,29 +111,35 @@ class Treemap:
             legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01),
         )
         self.fig.data[0]["textfont"]["size"] = 11
-        return self
+        return self.fig
 
-    def show(self):
+    def show(self) -> Self:
         self.fig.show()
         return self
 
-    def img64(self, format_img: str = "png"):
+    def img64(self, format_img: str = "png") -> tuple[str, Self]:
         img_bytes = self.fig.to_image(format=format_img)
         encoding = b64encode(img_bytes).decode()
         img_b64 = "data:image/png;base64," + encoding
         return img_b64, self
 
-    def png(self):
-        self.fig.write_image(file=self._path_data + self._title + ".png", format="png")
+    def png(self) -> Self:
+        self.fig.write_image(
+            file=self._path_data + self._title + ".png",
+            format="png",
+            scale=1,
+            width=1900,
+            height=1000,
+        )
         return self
 
-    def html(self):
-        with open(self._path_data + self._title + ".html", "w") as f:
-            f.write(self.chart_html())
+    def html(self, full_html: bool = True) -> Self:
+        with open(self._path_export + self._title + ".html", "w") as f:
+            f.write(self.chart_html(full_html=full_html))
         return self
 
-    def chart_html(self):
-        return self.fig.to_html(include_plotlyjs="cdn")
+    def chart_html(self, full_html: bool = True) -> str:
+        return self.fig.to_html(include_plotlyjs="cdn", full_html=full_html)
 
 
 def test_treemap():

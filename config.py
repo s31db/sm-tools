@@ -16,9 +16,11 @@ def config(path: str | None = None) -> ConfigParser:
 
 SectionProxy.__getattr__ = SectionProxy.__getitem__  # type: ignore
 ConfigParser.__getattr__ = (  # type: ignore
-    lambda self, key: ConfigParser.defaults(self).get(key)
-    if key in ConfigParser.defaults(self)
-    else ConfigParser.__getitem__(self, key)
+    lambda self, key: (
+        ConfigParser.defaults(self).get(key)
+        if key in ConfigParser.defaults(self)
+        else ConfigParser.__getitem__(self, key)
+    )
 )
 
 

@@ -27,6 +27,26 @@ def sprint_dates(
         yield from add_dates(d, frm, limit_date, end_date=date.fromisoformat(end_date))
 
 
+def previous_sprint_date(
+    start_date: str,
+    frm: str = "%Y-%m-%d",
+) -> str:
+    open_date = date.fromisoformat(start_date) - timedelta(days=1)
+    while open_date.weekday() >= 5 or JoursFeries.is_bank_holiday(open_date):
+        open_date -= timedelta(days=1)
+    return open_date.strftime(frm)
+
+
+def tomorrow_sprint_date(
+    start_date: str,
+    frm: str = "%Y-%m-%d",
+) -> str:
+    open_date = date.fromisoformat(start_date) - timedelta(days=1)
+    while open_date.weekday() >= 5 or JoursFeries.is_bank_holiday(open_date):
+        open_date += timedelta(days=1)
+    return open_date.strftime(frm)
+
+
 def add_dates(
     d, frm: str, limit_date: date | None, end_date: date
 ) -> Generator[str, None, None]:

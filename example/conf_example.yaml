@@ -11,6 +11,8 @@ projects:
     url_server: mock
     token_auth: mock
     path_data: datas/
+    path_export: export/
+    verify_ssl: True
     filter: NO_FILTER!
     start: "2023-08-01"
     end: "2023-10-01"
@@ -28,11 +30,16 @@ projects:
   Example:
     name: Example
     url_server: mock
+    type: JIRA
     token_auth: mock
     path_data: datas/
     filter: ''
     start: '2023-01-01'
     weeks: 12
+    verify_ssl: True
+    details: True
+    board_id: 0
+    date_format: False
     type_base:
       - User Story
       - Bug
@@ -108,3 +115,57 @@ projects:
       To Integrate: seagreen
       Done: darkgreen
       Close: darkgreen
+  Exemple_VersionOne:
+    type: version_one
+    name: Exemple_VersionOne
+    url_server: mock
+    instance: VersionOne
+    token: mock
+    path_data: datas/
+    path_export: export/
+    timebox:
+      name: Exemple
+      start_date : '2023-01-01'
+      weeks: 2
+    teamRoom: 5
+    actions:
+      - Extract
+      - Cumulative
+      - Treemap
+      - Suivi
+    pi:
+      - PI N1.1:
+          start: '2023-01-01'
+      - PI N1.2:
+          start: '2023-02-01'
+      - PI N1.3:
+          start: '2023-03-01'
+      - PI N1.4:
+          start: '2023-04-01'
+    filter: 'Team.Name="N1";Timebox.Name="Exemple"'
+    start: '2023-01-01'
+    weeks: 12
+    verify_ssl: True
+    details: True
+    date_format: False
+    fields:
+      Number:
+        field: Number
+      name:
+        field: Name
+      status:
+        field: Status.Name
+      Estimate:
+        field: Estimate
+      Timebox:
+        field: Timebox.Name
+    colors:
+      Analysis: '#858080'
+      Estimate: '#858080'
+      To Do: '#999898'
+      In Progress: '#5358ad'
+      Blocked: '#a32f2f'
+      In Test: '#448344'
+      To Integrate: seagreen
+      Done: darkgreen
+      Closed: darkgreen

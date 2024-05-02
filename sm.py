@@ -43,18 +43,10 @@ def jira_cum(
     cum = Cumulative(
         project, restart_done=True, **data_conf["projects"][project]  # type: ignore
     ).details(details)
-    my_dict = data_conf["projects"][project]["colors"]
-    my_dict = dict(reversed(my_dict.items()))
     if chart_html:
-        return (
-            cum.datas(datas_sm)
-            .colors(my_dict)
-            .asofs_all(filter_dates)
-            .build()
-            .chart_html()
-        )
+        return cum.datas(datas_sm).asofs_all(filter_dates).build().chart_html()
     else:
-        cum.datas(datas_sm).colors(my_dict).asofs_all(filter_dates).build().show()
+        cum.datas(datas_sm).asofs_all(filter_dates).build().show()
 
 
 def jira_treemap(
@@ -78,9 +70,7 @@ def jira_treemap(
     return t
 
 
-def get_tree(
-    project: str, suffix: str = "", date_file: str | None = None
-) -> tuple[
+def get_tree(project: str, suffix: str = "", date_file: str | None = None) -> tuple[
     dict[str, dict[str, dict[str, str | list[str] | int | float]]],
     dict[str, str | dict[str, dict[str, str | int | float]]],
     str,
@@ -93,9 +83,7 @@ def get_tree(
     return data_conf, n, now
 
 
-def prepare_data(
-    project: str, suffix: str, date_file: str | None = None
-) -> tuple[
+def prepare_data(project: str, suffix: str, date_file: str | None = None) -> tuple[
     dict[str, dict[str, dict[str, dict[str, str | int | list[str] | dict[str, str]]]]],
     dict[str, dict[str, dict[str, None | float | str | int | dict[str, str]]]],
 ]:
@@ -107,9 +95,9 @@ def prepare_data(
     print(f"file:///{path_file}", path_file)
     with open(path_file, "r", encoding="utf-8") as fp:
         # dict de date de ticket avec update ou fields
-        datas_sm: dict[
-            str, dict[str, dict[str, None | str | int | dict[str, str]]]
-        ] = json.load(fp)
+        datas_sm: dict[str, dict[str, dict[str, None | str | int | dict[str, str]]]] = (
+            json.load(fp)
+        )
     return data_conf, datas_sm
 
 
@@ -125,11 +113,17 @@ def dates(
     )
 
 
-def extract_jira(project: str, start_date: str, filtre: str = "", suffix: str = ""):
+def extract_jira(
+    project: str,
+    start_date: str,
+    filtre: str = "",
+    suffix: str = "",
+    asof: str | None = None,
+):
     data_conf = jiraconf()
     d = dates(start_date, 128)
     JiraSM(project=project, **data_conf["projects"][project]).conn().epic_ticket(
-        list(d), filtre=filtre, suffix=suffix
+        list(d), filtre=filtre, suffix=suffix, asof=asof
     )
 
 
@@ -808,32 +802,25 @@ def weeks_of_mounth(da: str) -> str:
 
 def time_nb(project: str, suffix: str = "", date_file: str | None = None):
     now = datefile(date_file)
-    datas_sm = prepare_data(project=project, suffix=suffix, date_file=now)[1]
+    datas_conf, datas_sm = prepare_data(project=project, suffix=suffix, date_file=now)
     tickets = []
     dates_end = {}
-    status_start = (
-        "To Do",
-        "In Progress",
-        "Blocked",
-        "Done",
-        "Testing",
-        "Validated",
-        "Closed",
-    )
     dates_l = list(datas_sm.keys())
     for da in dates_l:
         if da <= now:
             for ticket, value in datas_sm[da].items():
-                if ticket not in tickets and value["status"] in (
-                    "Done",
-                    "Testing",
-                    "Validated",
-                    "Closed",
+                if (
+                    ticket not in tickets
+                    and value["status"]
+                    in datas_conf["projects"][project]["status_done"]
                 ):
                     # Find start: In progress
                     for st_da in dates_l:
                         if datas_sm[da][ticket]["created"][:10] <= st_da <= now:
-                            if datas_sm[st_da][ticket]["status"] in status_start:
+                            if (
+                                datas_sm[st_da][ticket]["status"] is not None
+                                and datas_sm[st_da][ticket]["status"] != ""
+                            ):
                                 if da not in dates_end:
                                     dates_end[da] = {}
                                 estimate = (
@@ -872,8 +859,8 @@ def time_nb(project: str, suffix: str = "", date_file: str | None = None):
     # s.show()
 
     # Find repartition, time with estimate and cost
-    for estimate, tps in estimat.items():
-        print(estimate / 10, ":", sum(tps) / len(tps))
+    # for estimate, tps in estimat.items():
+    #     print(estimate / 10, ":", sum(tps) / len(tps))
     return s.chart_html()
 
 
@@ -987,12 +974,15 @@ def analysis_tree(project: str, date_file: str | None = None):
             "Treemap " + v["name"] + " " + now,
             nodes=v["stories"],
             **data_conf["projects"][project],
-        ).build().chart_html(), "" if epic == "No Epics" else " <b>" + time(
-            n[epic]["aggregatetimeestimate"]
-        ) + "</b> / " + time(
-            n[epic]["aggregatetimeoriginalestimate"]
-        ) + " --> Spent " + time(
-            n[epic]["aggregatetimespent"]
+        ).build().chart_html(), (
+            ""
+            if epic == "No Epics"
+            else " <b>"
+            + time(n[epic]["aggregatetimeestimate"])
+            + "</b> / "
+            + time(n[epic]["aggregatetimeoriginalestimate"])
+            + " --> Spent "
+            + time(n[epic]["aggregatetimespent"])
         )
 
 
