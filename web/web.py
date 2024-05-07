@@ -39,9 +39,9 @@ class MyServer(BaseHTTPRequestHandler):
             if "type" in conf and conf["type"] == "version_one":
                 append_filters = [self.path.split("filter=")[1]]
                 if asof:
-                    title = f"{project} Treemap {append_filters[0]} {asof}"
+                    title = f"{project} Treemap {' or '.join(append_filters)} {asof}"
                 else:
-                    title = f"{project} Treemap {append_filters[0]} {datetime.today().strftime('%Y-%m-%d %H:%M:%S')}"
+                    title = f"{project} Treemap {' or '.join(append_filters)} {datetime.today().strftime('%Y-%m-%d %H:%M:%S')}"
                 j = treemap_pi_portfolio(
                     conf=conf,
                     title=title,
@@ -53,7 +53,7 @@ class MyServer(BaseHTTPRequestHandler):
                 )[0]
             else:
                 j = jira_treemap(
-                    project=self.path.split("project=")[1], date_file=sfx, html=False
+                    project=self.path.split("project=")[1], date_file=asof, html=False
                 )
             self.w(j.chart_html())
         else:
@@ -215,7 +215,6 @@ class MyServer(BaseHTTPRequestHandler):
         self.w("</div>")
         dataconf = jiraconf()
         projects = dataconf["projects"]
-        sfx = None
         if b"projects" in req:
             for b_project in req[b"projects"]:
                 actions = b_project + b"_actions"
@@ -250,7 +249,7 @@ class MyServer(BaseHTTPRequestHandler):
                     link_treemap = f"/treemap?project={project}"
                     if asof:
                         link_treemap += f"&asof={asof}"
-                    link_treemap += f"&filtre={quote(filtre)}"
+                    link_treemap += f"&filter={quote(filtre)}"
                     self.w(f'<a href="{link_treemap}"')
                 else:
                     self.w(f'<a href="/treemap?project={project}"')
@@ -275,7 +274,10 @@ class MyServer(BaseHTTPRequestHandler):
                                 )
                             else:
                                 extract_jira(
-                                    project=project, start_date=start, filtre=filtre
+                                    project=project,
+                                    start_date=start,
+                                    filtre=filtre,
+                                    asof=asof,
                                 )
                         elif action == b"Cumulative":
                             if "type" in conf and conf["type"] == "version_one":
@@ -296,7 +298,7 @@ class MyServer(BaseHTTPRequestHandler):
                                 j = jira_cum(
                                     project=project,
                                     details=True,
-                                    date_file=sfx,
+                                    date_file=asof,
                                     weeks=weeks,
                                     start_date=start,
                                     step=step,
@@ -314,10 +316,10 @@ class MyServer(BaseHTTPRequestHandler):
                                     show=False,
                                     asof=asof,
                                     append_filters=[filtre],
-                                )
+                                )[0]
                             else:
                                 j = jira_treemap(
-                                    project=project, date_file=sfx, html=False
+                                    project=project, date_file=asof, html=False
                                 )
                             self.wl(
                                 # j.chart_html().split("<body>")[-1].split("</body>")[0]
@@ -336,7 +338,7 @@ class MyServer(BaseHTTPRequestHandler):
                                 extr=False,
                                 table=True,
                                 graph=False,
-                                append_filter=filtre,
+                                append_filters=[filtre],
                                 conf=conf,
                                 timebox=conf["timebox"]["name"],
                                 asof=asof,

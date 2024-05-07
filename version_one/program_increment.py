@@ -1,7 +1,8 @@
 from v1pysdk import V1Meta
-from version_one.versionone import feature, iteration
+from version_one.versionone import iteration
 import json
 from datetime import datetime
+from typing import List
 
 
 def stories_pi(
@@ -9,7 +10,7 @@ def stories_pi(
     its: iter,
     fields,
     asof: str | None = None,
-    append_filters: str = "",
+    append_filters: List[str] = "",
     title: str = "",
 ) -> iter:
     features = {}

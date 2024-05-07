@@ -20,6 +20,7 @@ class Treemap(Chart):
     _path_export: str
     _text_template: str
     _super: dict
+    _no_estimate: bool = False
 
     def nodes(self, nodes: dict) -> Self:
         self._nodes = nodes
@@ -62,13 +63,16 @@ class Treemap(Chart):
             if "children" in value:
                 values.append(0)
             else:
-                if "estimate" in value:
-                    estimate = value["estimate"]
-                    if estimate is None:
-                        estimate = 1
-                    values.append(estimate)
-                else:
+                if self._no_estimate:
                     values.append(1)
+                else:
+                    if "estimate" in value:
+                        estimate = value["estimate"]
+                        if estimate is None:
+                            estimate = 1
+                        values.append(estimate)
+                    else:
+                        values.append(1)
 
         self._text_template = (
             "%{label}<br>%{value}<br>"
@@ -76,8 +80,6 @@ class Treemap(Chart):
             "style='color: inherit'>"
             "%{customdata[0]}</a><br>%{customdata[1]}<br>%{customdata[2]}<br>"
         )
-
-        self._text_template = "toto"
 
         self.figure(
             colors,
@@ -87,7 +89,6 @@ class Treemap(Chart):
             parents,
             values,
         )
-
         return self
 
     def figure(self, colors, custom_data, ids, names, parents, values) -> Figure:

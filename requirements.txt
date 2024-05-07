@@ -1,24 +1,26 @@
 Pillow>=10.3.0
-types-Pillow>=10.2.0.20240415
+types-Pillow>=10.2.0.20240423
 pyperclip>=1.8.2
 PyAutoGUI>=0.9.54
 matplotlib>=3.8.3
 numpy>=1.26.4
 pywin32>=306
 squarify>=0.4.3
-plotly>=5.20.0
+plotly>=5.22.0
 pynput>=1.7.6
 pandas>=2.2.1
 pandas-stubs==2.2.1.240316
-pytest>=8.1.1
-jours-feries-france>=0.7.0
+pytest>=8.2.0
+holidays>=0.47
 jira>=3.8.0
 seaborn>=0.13.2
 PyYAML>=6.0.1
 types-PyYAML>=6.0.12.20240311
 XlsxWriter>=3.2.0
-black[d]>=24.4.0
-Mypy>=1.9.0
+black[d]>=24.4.2
+Mypy>=1.10.0
 types-requests>=2.31.0.20240403
 # v1pysdk>=0.7.0
 v1pysdk @ git+https://github.com/s31db/VersionOne.SDK.Python.git@master
+# klaxoon>=0.1.0
+# klaxoon @ git+https://github.com/s31db/klaxoon.git@master

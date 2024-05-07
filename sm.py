@@ -21,7 +21,6 @@ def jira_cum(
     date_file: str | None = None,
     suffix: str = "",
     step: int = 1,
-    details: bool = False,
     chart_html: bool = False,
     start_date: str = "2023-01-09",
     weeks: int = 15,
@@ -42,7 +41,7 @@ def jira_cum(
             i += 1
     cum = Cumulative(
         project, restart_done=True, **data_conf["projects"][project]  # type: ignore
-    ).details(details)
+    )
     if chart_html:
         return cum.datas(datas_sm).asofs_all(filter_dates).build().chart_html()
     else:
@@ -121,7 +120,7 @@ def extract_jira(
     asof: str | None = None,
 ):
     data_conf = jiraconf()
-    d = dates(start_date, 128)
+    d = dates(start_date, 128, end_date=asof)
     JiraSM(project=project, **data_conf["projects"][project]).conn().epic_ticket(
         list(d), filtre=filtre, suffix=suffix, asof=asof
     )

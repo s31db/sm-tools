@@ -41,6 +41,17 @@ naming = {
     "Scope.Name": "Planning Level",
 }
 
+# https://versionone.github.io/api-docs
+# Asset States
+# Asset states represent system-known life-cycle stage of an asset. The UI typically only show assets that are not "Dead".
+# State 	Name 	            Meaning
+# 0 	    Future
+# 64 	    Active 	            The asset has been assigned to a user-defined workflow status.
+# 128 	    Closed 	            The asset has been closed or quick-closed.
+# 200 	    Template (Dead) 	The asset is only used to create new copies as part of creating from Templates or Quick Add.
+# 208 	    Broken Down (Dead) 	The asset was converted to an Epic for further break-down.
+# 255 	    Deleted (Dead) 	    The asset has been deleted.
+
 
 def r(s):
     return "" if s is None or str(s) == "None" else str(s)
@@ -67,9 +78,12 @@ def str_file(title):
 
 def extracts(conf, title, filters, asof, fields, limit: int = None):
     tickets = {}
-    name_extract = f"{title}_{asof if asof else ''}"
-    with open(conf["path_data"] + "date_extract.txt", "r") as date_export:
-        lines = date_export.readlines()
+    name_extract = str_file(f"{title}_{asof if asof else ''}")
+    try:
+        with open(conf["path_data"] + "date_extract.txt", "r") as date_extract:
+            lines = date_extract.readlines()
+    except FileNotFoundError:
+        lines = []
     present = False
     for line in lines:
         line = line.replace("\n", "")
@@ -78,25 +92,35 @@ def extracts(conf, title, filters, asof, fields, limit: int = None):
             break
     if present:
         with open(
-            f"{conf['path_data']}result_{name_extract}.json",
+            f"{conf['path_data']}result_extract_{name_extract}.json",
             "r",
             encoding="utf-8",
         ) as fp:
-            tickets = json.load(fp)
+            features = json.load(fp)
     else:
         with V1Meta(
             address=conf["url_server"],
-            isinstance=conf["instance"],
+            instance=conf["instance"],
             password=conf["token"],
             use_password_as_token=True,
         ) as v1:
             for apppend_filter in filters:
                 for idref, s in stories(
-                    conf=conf, ver1=v1, fields=fields, s_filter=apppend_filter
+                    conf=conf,
+                    ver1=v1,
+                    fields=fields,
+                    s_filter=apppend_filter,
+                    json=True,
+                    asof=asof,
                 ):
                     tickets[idref] = s
                 for idref, s in defect(
-                    conf=conf, ver1=v1, fields=fields, s_filter=apppend_filter
+                    conf=conf,
+                    ver1=v1,
+                    fields=fields,
+                    s_filter=apppend_filter,
+                    json=True,
+                    asof=asof,
                 ):
                     tickets[idref] = s
         features = {}
@@ -135,7 +159,7 @@ def extracts(conf, title, filters, asof, fields, limit: int = None):
 def get_fields(max_super):
     fields = ["Estimate", "Timebox.Name", "AssetState", "Team.Name"]
     for i in range(max_super):
-        for field in fields:
+        for field in ("Number", "Name", "Status.Name"):
             fields.append("Super." * i + field)
     return fields
 
@@ -157,11 +181,6 @@ def iteration(
     tab = "<style>table.sm, .sm th, .sm td{border: 1px solid black; border-collapse: collapse;padding: 3px;}</style>"
     tickets = []
     ticketsjson = {}
-    # for t in (
-    #     ver1.Timebox.filter("Name='" + timebox + "'")
-    #     .select("ID")
-    #     .asof([] if asof is None else asof)
-    # ):
     if html:
         vals = OrderedDict(
             [
@@ -343,13 +362,7 @@ def feature(
             if html:
                 epic_url = f"https://{conf['url_server']}/{conf['instance']}/Epic.mvc/Summary?oidToken={e.idref}"
                 tab += (
-                    '<h1><a href="'
-                    + epic_url
-                    + '">'
-                    + e.Number
-                    + "</a>:  "
-                    + escape(e.Name)
-                    + "</h1>"
+                    f'<h1><a href="{epic_url}">{e.Number}:  {escape(e.Name)}</a></h1>'
                 )
                 tab += '<table class="sm"><thead><tr><th>'
                 tab += "</th><th>".join([naming[f] for f in fields])
@@ -500,7 +513,7 @@ def stories(
             )
             number = '<a href="' + story_url + '">' + s.Number + "</a>"
             yield "<tr><td>" + "</td><td>".join(
-                [b_html(c, s, number) for c in fields]
+                [b_html(conf, c, s, number) for c in fields]
             ) + "</td></tr>\n", s
         elif dic:
             if link:
@@ -515,7 +528,7 @@ def stories(
                     + s.Number
                     + "</a>"
                 )
-                yield [b_html(c, s, number) for c in fields]
+                yield [b_html(conf, c, s, number) for c in fields]
             else:
                 yield [r(eval("s." + c, {"s": s})) for c in fields]
         elif json:
@@ -531,9 +544,49 @@ def stories(
                     if todo != "":
                         todo_sum += float(todo)
                         d["ToDo"] = todo_sum
+                elif c in (
+                    "BlockingIssues.Name",
+                    "BlockingIssues.AssetState",
+                    "BlockingIssues.Number",
+                ):
+                    field_blocking: c[15:]
+                    for blocking_issue in s.BlockingIssues:
+                        if "BlockingIssues" in d:
+                            if blocking_issue.idref in d["BlockingIssues"]:
+                                d["BlockingIssues"][blocking_issue.idref][
+                                    field_blocking
+                                ] = r(blocking_issue[field_blocking])
+                            else:
+                                d["BlockingIssues"][blocking_issue.idref] = {
+                                    field_blocking: r(blocking_issue[field_blocking])
+                                }
+                        else:
+                            d["BlockingIssues"] = {
+                                blocking_issue.idref: {
+                                    field_blocking: r(blocking_issue[field_blocking])
+                                }
+                            }
+                elif "Goals" in c:
+                    field_goal = c.split("Goals.")[1]
+                    field_level_goal = c.split(".Goals")[0].split("Goals")[0] + ".Goals"
+                    for goal in s.Goals:
+                        if "Goals" in d:
+                            if goal.idref in d["Goals"]:
+                                d["Goals"][goal.idref][field_goal] = r(goal[field_goal])
+                            else:
+                                d["Goals"][goal.idref] = {
+                                    field_goal: r(goal[field_goal])
+                                }
+                                d["Goals"][goal.idref][field_level_goal] = r(
+                                    goal[field_level_goal]
+                                )
+                        else:
+                            d["Goals"] = {goal.idref: {field_goal: r(goal[field_goal])}}
                 else:
                     d[c] = r(eval("s." + c, {"s": s}))
-            d["Super.idref"] = r(s.Super.idref)
+            d["idref"] = r(s.idref)
+            if "Super.Number" in fields:
+                d["Super.idref"] = r(s.Super.idref)
             yield s.idref, d
         else:
             yield "\t" + s.Number, s.Name, r(s.Status.Name), r(s.Estimate), r(
@@ -568,7 +621,7 @@ def defect(
             )
             number = '<a href="' + story_url + '">' + d.Number + "</a>"
             yield "<tr><td>" + "</td><td>".join(
-                [b_html(c, d, number) for c in fields]
+                [b_html(conf, c, d, number) for c in fields]
             ) + "</td></tr>\n", d
         elif dic:
             if link:
@@ -583,7 +636,7 @@ def defect(
                     + d.Number
                     + "</a>"
                 )
-                yield [b_html(c, d, number) for c in fields]
+                yield [b_html(conf, c, d, number) for c in fields]
             else:
                 yield [r(eval("d." + c, {"d": d})) for c in fields]
         elif json:
@@ -599,9 +652,54 @@ def defect(
                     if todo != "":
                         todo_sum += float(todo)
                         di["ToDo"] = todo_sum
+
+                elif c in (
+                    "BlockingIssues.Name",
+                    "BlockingIssues.AssetState",
+                    "BlockingIssues.Number",
+                ):
+                    field_blocking: c[15:]
+                    for blocking_issue in d.BlockingIssues:
+                        if "BlockingIssues" in di:
+                            if blocking_issue.idref in di["BlockingIssues"]:
+                                di["BlockingIssues"][blocking_issue.idref][
+                                    field_blocking
+                                ] = r(blocking_issue[field_blocking])
+                            else:
+                                di["BlockingIssues"][blocking_issue.idref] = {
+                                    field_blocking: r(blocking_issue[field_blocking])
+                                }
+                        else:
+                            di["BlockingIssues"] = {
+                                blocking_issue.idref: {
+                                    field_blocking: r(blocking_issue[field_blocking])
+                                }
+                            }
+                elif "Goals" in c:
+                    field_goal = c.split("Goals.")[1]
+                    field_level_goal = c.split(".Goals")[0].split("Goals")[0] + ".Goals"
+                    for goal in d.Goals:
+                        if "Goals" in di:
+                            if goal.idref in di["Goals"]:
+                                di["Goals"][goal.idref][field_goal] = r(
+                                    goal[field_goal]
+                                )
+                            else:
+                                di["Goals"][goal.idref] = {
+                                    field_goal: r(goal[field_goal])
+                                }
+                                di["Goals"][goal.idref][field_level_goal] = r(
+                                    goal[field_level_goal]
+                                )
+                        else:
+                            di["Goals"] = {
+                                goal.idref: {field_goal: r(goal[field_goal])}
+                            }
                 else:
                     di[c] = r(eval("d." + c, {"d": d}))
-            di["Super.idref"] = r(d.Super.idref)
+            di["idref"] = r(d.idref)
+            if "Super.Number" in fields:
+                di["Super.idref"] = r(d.Super.idref)
             yield d.idref, di
         else:
             yield "\t" + d.Number, d.Name, r(d.Status.Name), r(d.Estimate), r(

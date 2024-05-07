@@ -54,6 +54,11 @@ def extract(conf, asofs, timebox: str, append_filters: List[str], id_filter: str
                         "ChildrenAndDown[AssetState!='Dead'].ToDo.@Sum",
                         "ToDo",
                         "Timebox.Name",
+                        "AssetState",
+                        "BlockingIssues.Name",
+                        "BlockingIssues.AssetState",
+                        "Super.Goals.Name",
+                        "Super.Goals.Number",
                     ),
                     asof=asof,
                     append_filters=append_filters,
@@ -122,7 +127,9 @@ def read(
         ord_portfolio = {}
         for asof in asofs:
             with open(
-                conf["path_data"] + "result" + asof + ".json", "r", encoding="utf-8"
+                f"{conf['path_data']}result{str_file(asof)}_{id_filter}.json",
+                "r",
+                encoding="utf-8",
             ) as fp:
                 data = json.load(fp)
             datas[asof] = data
@@ -144,6 +151,14 @@ def read(
                 else:
                     # update estimate
                     stories[key]["Estimate"] = values["Estimate"]
+                    if "BlockingIssues" in stories[key]:
+                        stories[key].pop("BlockingIssues")
+                    if "BlockingIssues" in values:
+                        stories[key]["BlockingIssues"] = values["BlockingIssues"]
+                    if "Goals" in stories[key]:
+                        stories[key].pop("Goals")
+                    if "Goals" in values:
+                        stories[key]["Goals"] = values["Goals"]
                 date_status = asof_prec if asof_prec else asof
                 time_in = 0
                 if key in last_status:
@@ -175,6 +190,9 @@ def read(
                             todos[key] = {asof: values["ToDo"]}
                         todos_prec[key] = values["ToDo"]
 
+                    if conf["suivi_daily"] and key in remove_story:
+                        remove_story.pop(key)
+
                 for key in data_prec.keys():
                     if key not in data_prec:
                         if key in remove_story:
@@ -186,15 +204,36 @@ def read(
             asof_prec = asof
         # print(new_story, remove_story, todos, sep='\n\n\n')
 
+        if conf["suivi_daily"]:
+            for rs, rs_values in remove_story.items():
+                ord_portfolio[stories[rs]["Super.Name"]]["nb"] -= 1
+                remove = stories.pop(rs)
+            for story in stories.values():
+                if (
+                    remove["Super.Name"] == story["Super.Name"]
+                    and remove["ord_item"] < story["ord_item"]
+                ):
+                    story["ord_item"] -= 1
+
         tab += "<style>table.sam, .sam th, .sam td{border: 1px solid black; border-collapse: collapse;padding: 3px;}</style>"
         tab += "<style>.sam tr:nth-child(even){background-color: #F2F3F4}</style>"
         tab += '\n<table class="sam"><thead><tr><th>'
-        fields = ("Super.Name", "Number", "Name", "Estimate", "ToDo", "Status.Name")
+        if conf["suivi_daily"]:
+            fields = ("Super.Name", "Number", "Name", "Estimate", "ToDo")
+            labels = ("Status", "RAE", "New", "Remove", "Date Status", "Day in Status")
+        else:
+            fields = ("Super.Name", "Number", "Name", "Estimate", "ToDo", "Status.Name")
+            labels = (
+                "Last Status",
+                "RAE",
+                "New",
+                "Remove",
+                "Date Status",
+                "Day in Status",
+            )
         tab += "</th><th>".join([naming[f] for f in fields])
         tab = tab.replace("Status", "First Status")
-        tab += "</th><th>" + "</th><th>".join(
-            ["Last Status", "RAE", "New", "Remove", "Date Status", "Day in Status"]
-        )
+        tab += "</th><th>" + "</th><th>".join(labels)
         tab += "</th></tr></thead>\n"
         stories = OrderedDict(
             sorted(
@@ -208,7 +247,7 @@ def read(
             number = '<a href="' + story_url + '">' + values["Number"] + "</a>"
             # tab += '<tr><td>' + '</td><td>'.join([v1_html(c, values, number, ord_portfolio) for c in fields])
             # tab += '<tr><td>' + ''.join([v1_html(c, values, number, ord_portfolio) for c in fields])
-            match last_status[key]:
+            match last_status[key]["name"]:
                 case "Done":
                     tab += '<tr style="background-color:#82E0AA">'
                 case "Blocked":
@@ -262,6 +301,18 @@ def read(
                 elif last_status[key]["time_in"] > 2:
                     tab += f' style="background-color: orange"'
             tab += f">{last_status[key]['time_in']}</td>"
+            if "BlockingIssues" in values:
+                blockings = []
+                for blocking_key, blocking_value in values["BlockingIssues"].items():
+                    blocking_name = (
+                        blocking_value["Name"][:20] + "..."
+                        if len(blocking_value["Name"]) > 20
+                        else blocking_value["Name"]
+                    )
+                    blockings.append(
+                        f'<a href="https://{conf["url_server"]}/{conf["instance"]}/Issue.mvc/Summary?oidToken={blocking_key}">{blocking_name}</a>'
+                    )
+                tab += "<td>" + ", ".join(blockings) + "</td>"
             tab += "</tr>\n"
         # for s, data in stories(tags[self.path[1:]], html=True, ver1=v1, fields=fields):
         #     tab += s

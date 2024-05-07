@@ -529,7 +529,7 @@ class JiraSM:
                                     else "Not assigned"
                                 ),
                                 task.fields.summary,
-                                self._url_server + "browse/" + task.key,
+                                self._url_server + "/browse/" + task.key,
                                 str(task.fields.status),
                                 str(task.fields.aggregatetimeestimate / 3600) + "h",
                             )

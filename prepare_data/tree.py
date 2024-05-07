@@ -8,8 +8,8 @@ def father(
     if sup in node:
         return (
             node[sup],
-            node[sup + ".status"],
-            node[sup + ".name"] if sup + ".name" in node else None,
+            node[sup + ".status"] if sup + ".status" in node else None,
+            node[sup + ".name"] if sup + ".name" in node else node[sup],
             node[sup + ".type"] if sup + ".type" in node else None,
         )
     return None, None, None, None
@@ -24,22 +24,26 @@ def build_tree(
             "lvl": 0,
             "status": values["status"],
             "estimate": values["estimate"] if "estimate" in values else 1,
-            "aggregatetimeoriginalestimate": values["aggregatetimeoriginalestimate"]
-            if "aggregatetimeoriginalestimate" in values
-            else 0,
-            "aggregatetimeestimate": values["aggregatetimeestimate"]
-            if "aggregatetimeestimate" in values
-            else 0,
-            "aggregatetimespent": values["aggregatetimespent"]
-            if "aggregatetimespent" in values
-            else 0,
+            "aggregatetimeoriginalestimate": (
+                values["aggregatetimeoriginalestimate"]
+                if "aggregatetimeoriginalestimate" in values
+                else 0
+            ),
+            "aggregatetimeestimate": (
+                values["aggregatetimeestimate"]
+                if "aggregatetimeestimate" in values
+                else 0
+            ),
+            "aggregatetimespent": (
+                values["aggregatetimespent"] if "aggregatetimespent" in values else 0
+            ),
             "name": values["name"] if "name" in values else None,
             "type": values["type"] if "type" in values else None,
-            "done": 0
-            if values["status"] != "Done"
-            else values["estimate"]
-            if "estimate" in values
-            else 1,
+            "done": (
+                0
+                if values["status"] != "Done"
+                else values["estimate"] if "estimate" in values else 1
+            ),
         }
         child_key = story
         for i in range(1, 10):

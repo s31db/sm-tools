@@ -128,6 +128,9 @@ projects:
       start_date : '2023-01-01'
       weeks: 2
     teamRoom: 5
+    max_super: 5
+    closed_is_done: True
+    no_estimate: False
     actions:
       - Extract
       - Cumulative
@@ -169,3 +172,4 @@ projects:
       To Integrate: seagreen
       Done: darkgreen
       Closed: darkgreen
+      Asset_Closed: darkgreen

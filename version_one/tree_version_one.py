@@ -1,37 +1,36 @@
-from typing import List
+from typing import List, Tuple
 import matplotlib.pyplot as plt
 from version_one.program_increment import stories_pi
-from version_one.versionone import extracts, str_file, get_fields
+from version_one.versionone import extracts, get_fields
+from helpers.prepare_date_sprint import sprint_dates
 from datetime import datetime, timedelta
 from charts.treemap import Treemap
 
 DEFAULT_ESTIMATE = 1.11
 
-MAX_SUPER = 5
 
-
-def not_present(a, nivxs, i) -> bool:
-    for j in range(i, MAX_SUPER):
+def not_present(a, nivxs, i, max_super: int) -> bool:
+    for j in range(i, max_super):
         if a in nivxs[j]:
             return False
     return True
 
 
-def build_super(v, title, i) -> str:
+def build_super(v, title, i, max_super: int) -> str:
     value = ""
-    for j in range(MAX_SUPER - i - 1, -1, -1):
+    for j in range(max_super - i - 1, -1, -1):
         if "super." * j + "super" in v:
             value += v["super." * j + "super"]
             if j > 0:
                 value += "/"
     if value == "":
-        return title
+        value = title
     return value
 
 
-def build_id(v, i, a) -> str:
+def build_id(v, i, a, max_super: int) -> str:
     value = ""
-    for j in range(MAX_SUPER - i - 1, -1, -1):
+    for j in range(max_super - i - 1, -1, -1):
         if "super." * j + "super" in v:
             value += v["super." * j + "super"] + "/"
     return value + a
@@ -44,10 +43,11 @@ def prepare_pi_portfolio(
     asof: str = None,
     append_filters: List[str] = None,
 ) -> List:
+    max_super = conf["max_super"]
     if asof:
         title = f"{title} {asof}"
-    fields = get_fields(MAX_SUPER)
-    clossed_is_done = True
+    fields = get_fields(max_super)
+    closed_is_done = conf["closed_is_done"]
 
     fs_now = {}
     if i_pi:
@@ -99,10 +99,9 @@ def prepare_pi_portfolio(
     else:
         fs = extracts(
             conf=conf,
-            its=i_pi,
             fields=fields,
             asof=asof,
-            append_filters=append_filters,
+            filters=append_filters,
             title=title,
         )
 
@@ -118,6 +117,7 @@ def prepare_pi_portfolio(
             epic_detail["story"].pop(key)
     sum_total = 0
     sum_total_done = 0
+    no_estimate = conf["no_estimate"]
     for key, epic_detail in fs.items():
         if key == "":
             continue
@@ -125,26 +125,32 @@ def prepare_pi_portfolio(
             (
                 [
                     (
-                        float(story["Estimate"])
-                        if "Estimate" in story and story["Estimate"] != ""
-                        else DEFAULT_ESTIMATE
+                        1
+                        if no_estimate
+                        else (
+                            float(story["Estimate"])
+                            if "Estimate" in story and story["Estimate"] != ""
+                            else DEFAULT_ESTIMATE
+                        )
                     )
                     for story in epic_detail["story"].values()
                 ]
             )
         )
-    sum_total_done += epic_detail["total"]
+    sum_total += epic_detail["total"]
     if epic_detail["total"] > 0:
         epic_detail["total_done"] = sum(
             [
                 (
                     0
                     if not story["Status.Name"] == "Done"
-                    or clossed_is_done
+                    or closed_is_done
                     and story["AssetState"] == "128"
                     else (
                         float(story["Estimate"])
-                        if "Estimate" in story and story["Estimate"] != ""
+                        if "Estimate" in story
+                        and story["Estimate"] != ""
+                        and story["Estimate"] != "0"
                         else DEFAULT_ESTIMATE
                     )
                 )
@@ -152,39 +158,43 @@ def prepare_pi_portfolio(
             ]
         )
         sum_total_done += epic_detail["total_done"]
-    if sum_total_done != 0:
+    if sum_total != 0:
         print(asof, sum_total_done, sum_total, sum_total_done * 100 / sum_total)
 
     nivxs = {"id": {}}
-    for i in range(MAX_SUPER):
-        nivxs["id"] = {}
+    for i in range(max_super):
+        nivxs[i] = {}
+
     for key, epic_detail in fs.items():
         for story in epic_detail["story"].values():
-            label_super = "Super." * i
-            if label_super + "Number" in story:
-                niv_id = story[label_super + "Number"]
-                nivxs["id"][i] = niv_id
-                if niv_id:
-                    if niv_id not in nivxs[i]:
-                        nivxs[i][niv_id] = {
-                            "total": 0,
-                            "total_done": 0,
-                            "Name": story[label_super + "Name"],
-                        }
-                    nivxs[i][niv_id]["total"] += epic_detail["total"]
-                    if "total_done" in epic_detail:
-                        nivxs[i][niv_id]["total_done"] += epic_detail["total_done"]
-                    epic_detail["super." * (i - 2) + "super"] = niv_id
-                    for j in range(2, i):
-                        # Add super.super inverse of actual level to build tree ids
-                        nivxs[j][nivxs[j]["super." * (i - j - 1) + "super"]] = niv_id
+            for i in range(2, max_super):
+                label_super = "Super." * i
+                if label_super + "Number" in story:
+                    niv_id = story[label_super + "Number"]
+                    nivxs["id"][i] = niv_id
+                    if niv_id:
+                        if niv_id not in nivxs[i]:
+                            nivxs[i][niv_id] = {
+                                "total": 0,
+                                "total_done": 0,
+                                "Name": story[label_super + "Name"],
+                            }
+                        nivxs[i][niv_id]["total"] += epic_detail["total"]
+                        if "total_done" in epic_detail:
+                            nivxs[i][niv_id]["total_done"] += epic_detail["total_done"]
+                        epic_detail["super." * (i - 2) + "super"] = niv_id
+                        for j in range(2, i):
+                            # Add super.super inverse of actual level to build tree ids
+                            nivxs[j][nivxs["id"][j]][
+                                "super." * (i - j - 1) + "super"
+                            ] = niv_id
             # First is sufficient to take parent
             break
     for key, values in nivxs[2].items():
         if key in fs:
-            values["total"] = fs[key]["total"]
-            values["total_done"] = fs[key]["total_done"]
-    for i in range(3, MAX_SUPER):
+            values["total"] += fs[key]["total"]
+            values["total_done"] += fs[key]["total_done"]
+    for i in range(3, max_super):
         for key, values in nivxs[i].items():
             if key in nivxs[i - 1]:
                 values["total"] += nivxs[i - 1][key]["total"]
@@ -196,7 +206,7 @@ def prepare_pi_portfolio(
         status_pos[status] = i
 
     names = [title]
-    for i in range(MAX_SUPER - 1, 1, -1):
+    for i in range(max_super - 1, 1, -1):
         names += [
             niv["Name"]
             + " "
@@ -206,32 +216,42 @@ def prepare_pi_portfolio(
                 else ""
             )
             for a, niv in nivxs[i].items()
-            if not_present(a, nivxs, i + 1)
+            if not_present(a, nivxs, i + 1, max_super)
         ]
 
     names += [
-        fs[a]["Name"]
+        v["Name"]
         + (
             " " + str(int(v["total_done"] * 100 / v["total"])) + "%"
             if "total_done" in v
             else ""
         )
         for a, v in fs.items()
-        if v["Name"] != "" and not_present(a, nivxs, 1)
+        if v["Name"] != "" and not_present(a, nivxs, 1, max_super)
     ]
 
     parents = [""]
-    for i in range(MAX_SUPER - 1, 1, -1):
+    for i in range(max_super - 1, 1, -1):
         parents += [
-            build_super(v, title, i)
-            for a, v in fs.items()
-            if v["Name"] != "" and not_present(a, nivxs, 1)
+            build_super(v, title, i, max_super)
+            for a, v in nivxs[i].items()
+            if not_present(a, nivxs, i + 1, max_super)
         ]
+    parents += [
+        build_super(v, title, 1, max_super)
+        for a, v in fs.items()
+        if v["Name"] != "" and not_present(a, nivxs, 1, max_super)
+    ]
+
     custom_data = [""]
-    for i in range(MAX_SUPER - 1, 1, -1):
-        custom_data += ["" for a, v in nivxs[i].keys() if not_present(a, nivxs, i + 1)]
+    for i in range(max_super - 1, 1, -1):
+        custom_data += [
+            "" for a in nivxs[i].keys() if not_present(a, nivxs, i + 1, max_super)
+        ]
     custom_data += [
-        "" for a, v in fs.items() if v["Name"] != "" and not_present(a, nivxs, 1)
+        ""
+        for a, v in fs.items()
+        if v["Name"] != "" and not_present(a, nivxs, 1, max_super)
     ]
     custom_link = [a for a in custom_data]
     custom_team = [a for a in custom_data]
@@ -239,26 +259,37 @@ def prepare_pi_portfolio(
     custom_data_ite = [a for a in custom_data]
 
     values = [0]
-    for i in range(MAX_SUPER - 1, 1, -1):
-        values += [0 for a in nivxs[i].keys() if not_present(a, nivxs, i + 1)]
-    values += [0 for a, v in fs.items() if v["Name"] != "" and not_present(a, nivxs, 1)]
+    for i in range(max_super - 1, 1, -1):
+        values += [
+            0 for a in nivxs[i].keys() if not_present(a, nivxs, i + 1, max_super)
+        ]
+    values += [
+        0
+        for a, v in fs.items()
+        if v["Name"] != "" and not_present(a, nivxs, 1, max_super)
+    ]
 
     colors = {"": "Grey"}
 
     ids = [""]
-    for i in range(MAX_SUPER - 1, 1, -1):
+    for i in range(max_super - 1, 1, -1):
         ids += [
-            build_id(v, i, a)
-            for a, v in fs.items()
-            if v["Name"] != "" and not_present(a, nivxs, 1)
+            build_id(v, i, a, max_super)
+            for a, v in nivxs[i].items()
+            if v["Name"] != "" and not_present(a, nivxs, i + 1, max_super)
         ]
-    for i in range(MAX_SUPER - 1, 1, -1):
-        colorize(colors, nivxs[i], i)
-    colorize(colors, fs, 0)
+    ids += [
+        build_id(v, i, a, max_super)
+        for a, v in fs.items()
+        if v["Name"] != "" and not_present(a, nivxs, 1, max_super)
+    ]
+    for i in range(max_super - 1, 1, -1):
+        colorize(colors, nivxs[i], i, max_super)
+    colorize(colors, fs, 0, max_super)
 
     for key, epic_detail in fs.items():
         if key == "":
-            continue
+            key = title
         epics = epic_detail["story"]
         epics_sorted = {
             k: v
@@ -270,22 +301,26 @@ def prepare_pi_portfolio(
             names.append(story["Number"])
             parents_story = key
             id_story = key + "/" + s
-            for i in range(2, MAX_SUPER):
+            for i in range(2, max_super):
                 super_number = "Super." * i + "Number"
                 if super_number in story and story[super_number]:
                     parents_story = story[super_number] + "/" + parents_story
                     id_story = story[super_number] + "/" + id_story
             parents.append(parents_story)
             value = (
-                float(story["Estimate"])
-                if "Estimate" in story and story["Estimate"] != ""
-                else DEFAULT_ESTIMATE
+                1
+                if no_estimate
+                else (
+                    float(story["Estimate"])
+                    if "Estimate" in story and story["Estimate"] != ""
+                    else DEFAULT_ESTIMATE
+                )
             )
             values.append(value)
             custom_data.append(story["Name"].strip())
             if "idref" in story:
                 st = "story" if s[0] == "S" else "defect"
-                custom_linked = f"{st}.mvc/Summay?oidToken=({story['idref']})"
+                custom_linked = f"{st}.mvc/Summary?oidToken={story['idref']}"
             else:
                 custom_linked = ""
             custom_link.append(custom_linked)
@@ -295,10 +330,10 @@ def prepare_pi_portfolio(
             ids.append(id_story)
             colors[id_story] = (
                 conf_colors["Asset_Closed"]
-                if clossed_is_done
+                if closed_is_done
                 and story["AssetState"] == "128"
-                and story["Status.Name"] != "Doned"
-                else colors[story["Status.Name"]]
+                and story["Status.Name"] != "Done"
+                else conf_colors[story["Status.Name"]]
             )
 
     return (
@@ -324,7 +359,7 @@ def treemap_pi_portfolio(
     img: bool = False,
     asof: str | None = None,
     append_filters: List[str] = [""],
-):
+) -> Tuple[Treemap, str]:
     (
         names,
         values,
@@ -341,7 +376,9 @@ def treemap_pi_portfolio(
     )
 
     treemap = Treemap(title=title, global_parent="Portfolio", **conf)
-    treemap._text_template = f'<a href="{conf["url_server"]}/{conf["instance"]}/'
+    treemap._text_template = (
+        f'<a href="https://{conf["url_server"]}/{conf["instance"]}/'
+    )
     treemap._text_template += (
         '%{customdata[0]}" style="color:inherit">%{label}</a><br>%{customdata[1]}<br>'
     )
@@ -383,12 +420,12 @@ def export(asof, treemap, img, sav, show, title):
     return title_date
 
 
-def colorize(colors, niv, i):
+def colorize(colors, niv, i, max_super: int):
     total = {}
     for k, v in niv.items():
         if k == "":
             continue
-        key = build_id(v, i, k)
+        key = build_id(v, i, k, max_super)
         total[key] = v["total"]
     total_sorted = {k: v for k, v in sorted(total.items(), key=lambda item: item[1])}
     n = 0
@@ -408,3 +445,28 @@ def colorize(colors, niv, i):
         if nb_prec != nb:
             n += 1
         nb_prec = nb
+
+
+def anime(conf, title, filters):
+    filenames = []
+    tomorrow = (datetime.today() + timedelta(days=1)).strftime("%Y%m%d")
+    treemap = None
+    for sprint_id, sprint_val in conf["sprints"].items():
+        for asof_d in sprint_dates(
+            start_date=sprint_val["start_date"], weeks=sprint_val["weeks"]
+        ):
+            if asof_d <= tomorrow:
+                treemap, filename = treemap_pi_portfolio(
+                    conf=conf,
+                    title=title,
+                    asof=asof_d,
+                    append_filters=filters,
+                    i_pi=conf["pi"].keys(),
+                    show=False,
+                    sav=False,
+                    img=True,
+                )
+                filenames.append(conf["path_export"] + filename + ".png")
+    if treemap:
+        treemap.title(title + "_animation")
+        treemap.sequence(filenames=filenames, duration=1000, loop=None)

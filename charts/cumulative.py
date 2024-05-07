@@ -77,7 +77,7 @@ class Cumulative(Chart):
         colors_project = dict(reversed(self._colors.items()))
         vals: dict[str, list[int]] = {}
         for val in colors_project.keys():
-            vals[self.replace_status(val)[1]] = []
+            vals[self.replace_status(val, None)[1]] = []
         asofs: list[str] = self.count_status(vals)
 
         colors, vals = self.prepare_colors(vals, colors_project=colors_project)
