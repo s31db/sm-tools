@@ -129,7 +129,9 @@ def prepare_pi_portfolio(
                         if no_estimate
                         else (
                             float(story["Estimate"])
-                            if "Estimate" in story and story["Estimate"] != ""
+                            if "Estimate" in story
+                            and story["Estimate"] != ""
+                            and story["Estimate"] != 0
                             else DEFAULT_ESTIMATE
                         )
                     )
@@ -144,14 +146,17 @@ def prepare_pi_portfolio(
                 (
                     0
                     if not story["Status.Name"] == "Done"
-                    or closed_is_done
-                    and story["AssetState"] == "128"
+                    or (closed_is_done and story["AssetState"] == "128")
                     else (
-                        float(story["Estimate"])
-                        if "Estimate" in story
-                        and story["Estimate"] != ""
-                        and story["Estimate"] != "0"
-                        else DEFAULT_ESTIMATE
+                        1
+                        if no_estimate
+                        else (
+                            float(story["Estimate"])
+                            if "Estimate" in story
+                            and story["Estimate"] != ""
+                            and story["Estimate"] != "0"
+                            else DEFAULT_ESTIMATE
+                        )
                     )
                 )
                 for story in epic_detail["story"].values()
@@ -276,10 +281,10 @@ def prepare_pi_portfolio(
         ids += [
             build_id(v, i, a, max_super)
             for a, v in nivxs[i].items()
-            if v["Name"] != "" and not_present(a, nivxs, i + 1, max_super)
+            if not_present(a, nivxs, i + 1, max_super)
         ]
     ids += [
-        build_id(v, i, a, max_super)
+        build_id(v, 1, a, max_super)
         for a, v in fs.items()
         if v["Name"] != "" and not_present(a, nivxs, 1, max_super)
     ]

@@ -1,5 +1,5 @@
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from urllib.parse import parse_qs, quote, unquote
+from urllib.parse import parse_qs, quote
 from HtmlClipboard import put_html
 from sm import (
     jiraconf,
@@ -297,7 +297,6 @@ class MyServer(BaseHTTPRequestHandler):
                             else:
                                 j = jira_cum(
                                     project=project,
-                                    details=True,
                                     date_file=asof,
                                     weeks=weeks,
                                     start_date=start,

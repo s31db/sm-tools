@@ -549,7 +549,7 @@ def stories(
                     "BlockingIssues.AssetState",
                     "BlockingIssues.Number",
                 ):
-                    field_blocking: c[15:]
+                    field_blocking = c[15:]
                     for blocking_issue in s.BlockingIssues:
                         if "BlockingIssues" in d:
                             if blocking_issue.idref in d["BlockingIssues"]:

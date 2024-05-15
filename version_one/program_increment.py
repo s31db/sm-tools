@@ -10,7 +10,7 @@ def stories_pi(
     its: iter,
     fields,
     asof: str | None = None,
-    append_filters: List[str] = "",
+    append_filters: List[str] = [""],
     title: str = "",
 ) -> iter:
     features = {}
@@ -44,7 +44,10 @@ def stories_pi(
                     json=True,
                     ver1=v1,
                     link=False,
-                    append_filters=append_filters,
+                    append_filters=[
+                        f'Timebox.Name="{it}"{append_filter}'
+                        for append_filter in append_filters
+                    ],
                     fields=fields,
                     asof=asof,
                 )
@@ -67,5 +70,6 @@ def stories_pi(
                     features[us["Super.Number"]] = {
                         "Name": us["Super.Name"],
                         "story": {us["Number"]: us},
+                        "status": us["Super.Status.Name"],
                     }
     return features

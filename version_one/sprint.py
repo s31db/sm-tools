@@ -57,6 +57,7 @@ def extract(conf, asofs, timebox: str, append_filters: List[str], id_filter: str
                         "AssetState",
                         "BlockingIssues.Name",
                         "BlockingIssues.AssetState",
+                        "BlockingIssues.Number",
                         "Super.Goals.Name",
                         "Super.Goals.Number",
                     ),
@@ -247,13 +248,12 @@ def read(
             number = '<a href="' + story_url + '">' + values["Number"] + "</a>"
             # tab += '<tr><td>' + '</td><td>'.join([v1_html(c, values, number, ord_portfolio) for c in fields])
             # tab += '<tr><td>' + ''.join([v1_html(c, values, number, ord_portfolio) for c in fields])
-            match last_status[key]["name"]:
-                case "Done":
-                    tab += '<tr style="background-color:#82E0AA">'
-                case "Blocked":
-                    tab += '<tr style="background-color:#E74C3C">'
-                case _:
-                    tab += "<tr>"
+            if last_status[key]["name"] in conf["status_done"]:
+                tab += '<tr style="background-color:#82E0AA">'
+            elif last_status[key]["name"] == "Blocked":
+                tab += '<tr style="background-color:#E74C3C">'
+            else:
+                tab += "<tr>"
             tab += "".join(
                 [
                     v1_html(conf, c, values, number, ord_portfolio, i)
@@ -261,7 +261,7 @@ def read(
                 ]
             )
             tab += "<td"
-            if last_status[key]["name"] not in ("Done", "Blocked"):
+            if last_status[key]["name"] not in [*conf["status_done"], "Blocked"]:
                 tab += f' style="background-color: {conf["colors"][last_status[key]["name"]]}"'
             tab += ">" + last_status[key]["name"] + "</td>"
             # Tout les restes à faire
@@ -288,13 +288,14 @@ def read(
                 + (", ".join(new_story[key]) if key in new_story else "")
                 + "</td>"
             )
-            tab += (
-                "<td>"
-                + (", ".join(remove_story[key]) if key in remove_story else "")
-                + "</td>"
-            )
+            if not conf["suivi_daily"]:
+                tab += (
+                    "<td>"
+                    + (", ".join(remove_story[key]) if key in remove_story else "")
+                    + "</td>"
+                )
             tab += f"<td>{last_status[key]['date_status']}</td>"
-            tab += f"<td"
+            tab += "<td"
             if last_status[key]["name"] in ("In Progress",):
                 if last_status[key]["time_in"] > 5:
                     tab += f' style="background-color: red"'
@@ -328,7 +329,6 @@ def read(
                 encoding="utf-8",
             ) as fp:
                 datas[previous_sprint_date(asof)] = json.load(fp)
-        tab += '<p style="text-align: center;">'
         # tab += burndown(asofs, asofs_all, title="Burn Down Sprint ") + '" alt="" />'
         asofs_all = [previous_sprint_date(d) for d in asofs_all]
         if len(asofs) > 1:
@@ -336,7 +336,7 @@ def read(
                 Cumulative(
                     datas=datas,
                     asofs_all=asofs_all,
-                    title="Workitem Cumulative Flow " + timebox,
+                    title="Workitem Cumulative Flow " + " or ".join(append_filters),
                     **conf,
                 )
                 .build()
@@ -360,11 +360,9 @@ def v1_html(conf, c, s, number, ord_portfolio, i):
             sup_url = f'https://{conf["url_server"]}/{conf["instance"]}/Epic.mvc/Summary?oidToken={s["Super.idref"]}'
             rowspan = ord_portfolio[s["Super.Name"]]["nb"]
             if rowspan > 1:
-                td += f' style="background-color: white" rowspan="{str(rowspan)}">'
-                td += f'<a href="{sup_url}">{s[c]}</a>'
-                return td
+                return f'{td} style="background-color: white" rowspan="{str(rowspan)}"><a href="{sup_url}">{s[c]}</a>'
             else:
-                return td + 'd><a href="' + sup_url + '">' + s[c] + "</a>"
+                return f'{td}><a href="{sup_url}">{s[c]}</a>'
         else:
             return ""
     elif c == "Timebox.Name" and "Timebox" in s:
@@ -372,9 +370,9 @@ def v1_html(conf, c, s, number, ord_portfolio, i):
         return td + '><a href="' + iteration_url + '">' + s[c] + "</a>"
     elif c == "Status.Name":
         status = r(s[c] if c in s else None)
-        if status == "Done":
-            return td + ' style="background-color:green">' + status
-        return td + ">" + status
+        if status in conf["status_done"]:
+            td += ' style="background-color:green"'
+        return f"{td}>{status}"
     elif c == "TaggedWith" and s.TaggedWith:
         tagged = []
         for t in s.TaggedWith:
@@ -383,11 +381,4 @@ def v1_html(conf, c, s, number, ord_portfolio, i):
                 tagged.append('<a href="' + tag_url + '">' + str(t) + "</a>")
         return " ".join(tagged)
     else:
-        return "</td><td>" + r(s[c] if c in s else None)
-
-
-if __name__ == "__main__":
-    # extract()
-    # extract(('2022-09-24', '2022-09-27'))
-    # read()
-    pass
+        return td + ">" + r(s[c] if c in s else None)
