@@ -309,7 +309,7 @@ class MyServer(BaseHTTPRequestHandler):
                             if "type" in conf and conf["type"] == "version_one":
                                 j = treemap_pi_portfolio(
                                     conf=conf,
-                                    title=project + " Treemap",
+                                    title=project + " " + filtre,
                                     sav=False,
                                     img=False,
                                     show=False,

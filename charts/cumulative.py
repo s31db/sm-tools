@@ -54,7 +54,7 @@ class Cumulative(Chart):
             self._closed_is_done
             and data
             and "AssetState" in data
-            and data["AssetState"] == 128
+            and data["AssetState"] == "128"
         ):
             status_r = "Done"
         return self, status_r

@@ -568,20 +568,32 @@ def stories(
                             }
                 elif "Goals" in c:
                     field_goal = c.split("Goals.")[1]
-                    field_level_goal = c.split(".Goals")[0].split("Goals")[0] + ".Goals"
-                    for goal in s.Goals:
-                        if "Goals" in d:
-                            if goal.idref in d["Goals"]:
-                                d["Goals"][goal.idref][field_goal] = r(goal[field_goal])
+                    if ".Goals" in c:
+                        level_goal = c.split(".Goals")[0] + ".Goals"
+                    else:
+                        level_goal = "Goals"
+                    goals = eval("s." + level_goal, {"s": s})
+                    if goals:
+                        for goal in goals:
+                            if "Goals" in d:
+                                if goal.idref in d["Goals"]:
+                                    d["Goals"][goal.idref][field_goal] = r(
+                                        eval("goal." + field_goal, {"goal": goal})
+                                    )
+                                else:
+                                    d["Goals"][goal.idref] = {
+                                        field_goal: r(
+                                            eval("goal." + field_goal, {"goal": goal})
+                                        )
+                                    }
                             else:
-                                d["Goals"][goal.idref] = {
-                                    field_goal: r(goal[field_goal])
+                                d["Goals"] = {
+                                    goal.idref: {
+                                        field_goal: r(
+                                            eval("goal." + field_goal, {"goal": goal})
+                                        )
+                                    }
                                 }
-                                d["Goals"][goal.idref][field_level_goal] = r(
-                                    goal[field_level_goal]
-                                )
-                        else:
-                            d["Goals"] = {goal.idref: {field_goal: r(goal[field_goal])}}
                 else:
                     d[c] = r(eval("s." + c, {"s": s}))
             d["idref"] = r(s.idref)
@@ -658,7 +670,7 @@ def defect(
                     "BlockingIssues.AssetState",
                     "BlockingIssues.Number",
                 ):
-                    field_blocking: c[15:]
+                    field_blocking = c[15:]
                     for blocking_issue in d.BlockingIssues:
                         if "BlockingIssues" in di:
                             if blocking_issue.idref in di["BlockingIssues"]:

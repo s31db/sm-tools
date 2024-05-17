@@ -131,7 +131,7 @@ def prepare_pi_portfolio(
                             float(story["Estimate"])
                             if "Estimate" in story
                             and story["Estimate"] != ""
-                            and story["Estimate"] != 0
+                            and story["Estimate"] != "0"
                             else DEFAULT_ESTIMATE
                         )
                     )
@@ -145,8 +145,10 @@ def prepare_pi_portfolio(
             [
                 (
                     0
-                    if not story["Status.Name"] == "Done"
-                    or (closed_is_done and story["AssetState"] == "128")
+                    if not (
+                        story["Status.Name"] in conf["status_done"]
+                        or (closed_is_done and story["AssetState"] == "128")
+                    )
                     else (
                         1
                         if no_estimate
@@ -337,7 +339,7 @@ def prepare_pi_portfolio(
                 conf_colors["Asset_Closed"]
                 if closed_is_done
                 and story["AssetState"] == "128"
-                and story["Status.Name"] != "Done"
+                and story["Status.Name"] not in conf["status_done"]
                 else conf_colors[story["Status.Name"]]
             )
 
