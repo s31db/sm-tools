@@ -11,7 +11,7 @@ class Chart:
     _title: str
     _path_export: str
 
-    def __init__(self, *args: str, **kwargs: str | bool) -> None:
+    def __init__(self, *args: str, **kwargs: str | bool | int | dict | list) -> None:
         if args:
             self._title = args[0]
         for key, value in kwargs.items():
