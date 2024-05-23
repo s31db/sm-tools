@@ -139,32 +139,32 @@ def prepare_pi_portfolio(
                 ]
             )
         )
-    sum_total += epic_detail["total"]
-    if epic_detail["total"] > 0:
-        epic_detail["total_done"] = sum(
-            [
-                (
-                    0
-                    if not (
-                        story["Status.Name"] in conf["status_done"]
-                        or (closed_is_done and story["AssetState"] == "128")
-                    )
-                    else (
-                        1
-                        if no_estimate
+        sum_total += epic_detail["total"]
+        if epic_detail["total"] > 0:
+            epic_detail["total_done"] = sum(
+                [
+                    (
+                        0
+                        if not (
+                            story["Status.Name"] in conf["status_done"]
+                            or (closed_is_done and story["AssetState"] == "128")
+                        )
                         else (
-                            float(story["Estimate"])
-                            if "Estimate" in story
-                            and story["Estimate"] != ""
-                            and story["Estimate"] != "0"
-                            else DEFAULT_ESTIMATE
+                            1
+                            if no_estimate
+                            else (
+                                float(story["Estimate"])
+                                if "Estimate" in story
+                                and story["Estimate"] != ""
+                                and story["Estimate"] != "0"
+                                else DEFAULT_ESTIMATE
+                            )
                         )
                     )
-                )
-                for story in epic_detail["story"].values()
-            ]
-        )
-        sum_total_done += epic_detail["total_done"]
+                    for story in epic_detail["story"].values()
+                ]
+            )
+            sum_total_done += epic_detail["total_done"]
     if sum_total != 0:
         print(asof, sum_total_done, sum_total, sum_total_done * 100 / sum_total)
 
