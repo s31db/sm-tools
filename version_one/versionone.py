@@ -1,23 +1,15 @@
-# https://pypi.org/project/v1pysdk/
-# https://github.com/mtalexan/VersionOne.SDK.Python
-# https://pypi.org/project/ntlm-auth/
-# https://XXXXX/VersionOne/meta.v1/Story
-# https://XXXXX/VersionOne/rest-1.v1/Data/Story/2881576
-
 from v1pysdk import V1Meta
 from HtmlClipboard import put_html
 from charts.donut import Donut
 from config import config
-from collections import OrderedDict
 from datetime import datetime
+from helpers.string_helper import r, str_file
 from html import escape
-from string import ascii_letters, digits
-from typing import List
 import yaml
 import json
 from yaml.loader import SafeLoader
 
-fields_html = (
+DEFAULT_FIELDS = (
     "Number",
     "Name",
     "Status.Name",
@@ -25,7 +17,7 @@ fields_html = (
     "Timebox.Name",
     "TaggedWith",
 )
-fields_tab = ("Number", "Name", "Estimate", "Status.Name")
+
 naming = {
     "Number": "Id",
     "Name": "Title",
@@ -41,56 +33,31 @@ naming = {
     "Scope.Name": "Planning Level",
 }
 
-# https://versionone.github.io/api-docs
-# Asset States
-# Asset states represent system-known life-cycle stage of an asset. The UI typically only show assets that are not "Dead".
-# State 	Name 	            Meaning
-# 0 	    Future
-# 64 	    Active 	            The asset has been assigned to a user-defined workflow status.
-# 128 	    Closed 	            The asset has been closed or quick-closed.
-# 200 	    Template (Dead) 	The asset is only used to create new copies as part of creating from Templates or Quick Add.
-# 208 	    Broken Down (Dead) 	The asset was converted to an Epic for further break-down.
-# 255 	    Deleted (Dead) 	    The asset has been deleted.
-
-
-def r(s):
-    return "" if s is None or str(s) == "None" else str(s)
-
 
 def version_one_conf() -> (
     dict[str, dict[str, dict[str, dict[str, str | int | list[str] | dict[str, str]]]]]
 ):
-    data_conf: dict[
-        str, dict[str, dict[str, dict[str, str | int | list[str] | dict[str, str]]]]
-    ]
-    # common str ou projets de projet avec fields, list, dict
     c = config()
     with open(c.Version_one.conf, "r", encoding="utf-8") as f:
         data_conf = yaml.load(f, Loader=SafeLoader)
     return data_conf
 
 
-def str_file(title):
-    valid_chars = "-_.() %s%s" % (ascii_letters, digits)
-    filename = "".join(c for c in title if c in valid_chars)
-    return filename.replace(" ", "_")
-
-
-def extracts(conf, title, filters, asof, fields, limit: int = None):
+def extract_tree(
+    conf: dict[
+        str, dict[str, dict[str, dict[str, str | int | list[str] | dict[str, str]]]]
+    ],
+    title: str,
+    filters: list[str],
+    asof: str | None,
+    fields: list[str],
+    limit: int = None,
+):
     tickets = {}
     name_extract = str_file(f"{title}_{asof if asof else ''}")
-    try:
-        with open(conf["path_data"] + "date_extract.txt", "r") as date_extract:
-            lines = date_extract.readlines()
-    except FileNotFoundError:
-        lines = []
-    present = False
-    for line in lines:
-        line = line.replace("\n", "")
-        if asof and line.split(":")[0] == name_extract and line[-19:-9] >= asof:
-            present = True
-            break
-    if present:
+    if extract_exist(
+        conf=conf, asof=asof, name_extract=name_extract, name_file="date_extract"
+    ):
         with open(
             f"{conf['path_data']}result_extract_{name_extract}.json",
             "r",
@@ -103,26 +70,16 @@ def extracts(conf, title, filters, asof, fields, limit: int = None):
             instance=conf["instance"],
             password=conf["token"],
             use_password_as_token=True,
-        ) as v1:
-            for apppend_filter in filters:
-                for idref, s in stories(
-                    conf=conf,
-                    ver1=v1,
-                    fields=fields,
-                    s_filter=apppend_filter,
-                    json=True,
-                    asof=asof,
-                ):
-                    tickets[idref] = s
-                for idref, s in defect(
-                    conf=conf,
-                    ver1=v1,
-                    fields=fields,
-                    s_filter=apppend_filter,
-                    json=True,
-                    asof=asof,
-                ):
-                    tickets[idref] = s
+        ) as ver1:
+            for s_filter in filters:
+                for type_vone in [ver1.Story, ver1.Defect]:
+                    for idref, ticket in extract_datas(
+                        s_filter=s_filter,
+                        fields=fields,
+                        asof=asof,
+                        type_vone=type_vone,
+                    ):
+                        tickets[idref] = ticket
         features = {}
         for ticket in tickets.values():
             if ticket["Super.Number"] in features:
@@ -134,15 +91,12 @@ def extracts(conf, title, filters, asof, fields, limit: int = None):
                     "status": ticket["Super.Status.Name"],
                 }
         if asof:
-            with open(
-                f"{conf['path_data']}result_extract_{name_extract}.json",
-                "w",
-                encoding="utf-8",
-            ) as fp:
-                json.dump(features, fp)
-        with open(conf["path_data"] + "date_extract.txt", "a") as date_export:
-            date_export.write(
-                f"{name_extract}: {datetime.today().strftime('%Y-%m-%d %H:%M:%S')}\n"
+            save_extract(
+                conf=conf,
+                datas=features,
+                name_extract=name_extract,
+                name_file="date_extract",
+                prefix="result_extract_",
             )
     if limit:
         fs = {}
@@ -156,567 +110,290 @@ def extracts(conf, title, filters, asof, fields, limit: int = None):
     return fs
 
 
-def get_fields(max_super):
-    fields = ["Estimate", "Timebox.Name", "AssetState", "Team.Name"]
-    for i in range(max_super):
-        for field in ("Number", "Name", "Status.Name"):
-            fields.append("Super." * i + field)
-    return fields
-
-
-def iteration(
-    conf,
-    timebox,
-    append_filters: List[str] = [""],
-    html=False,
-    dic=False,
-    ver1=None,
-    image=False,
-    json=False,
-    fields=("Number", "Name", "Status.Name", "Estimate", "Timebox.Name", "TaggedWith"),
-    order=None,
-    link=True,
-    asof=None,
+def save_extract(
+    conf: dict, datas: dict, name_extract: str, name_file: str, prefix: str
 ):
-    tab = "<style>table.sm, .sm th, .sm td{border: 1px solid black; border-collapse: collapse;padding: 3px;}</style>"
-    tickets = []
-    ticketsjson = {}
-    if html:
-        vals = OrderedDict(
-            [
-                ("", 0),
-                ("ToDo", 0),
-                ("In Progress", 0),
-                ("Blocked", 0),
-                ("In Test", 0),
-                ("To Integrate", 0),
-                ("To Test PO", 0),
-                ("Done", 0),
-            ]
+    with open(
+        f"{conf['path_data']}{prefix}{name_extract}.json",
+        "w",
+        encoding="utf-8",
+    ) as fp:
+        json.dump(datas, fp)
+    with open(f'{conf["path_data"]}{name_file}.txt', "a") as date_export:
+        date_export.write(
+            f"{name_extract}: {datetime.today().strftime('%Y-%m-%d %H:%M:%S')}\n"
         )
-        datas = []
-        t = (
-            ver1.Timebox.filter("Name='" + timebox + "'")
-            .select("ID")
-            .asof([] if asof is None else asof)[0]
-        )
-        iteration_url = f"https://{conf['url_server']}/{conf['instance']}/Iteration.mvc/Summary?oidToken={t.idref}"
-        tab += '<h1><a href="' + iteration_url + '">' + timebox + "</a></h1>"
-        tab += '<table class="sm"><thead><tr><th>'
-        tab += "</th><th>".join([naming[f] for f in fields])
-        tab += "</th></tr></thead>\n"
-        for append_filter in append_filters:
-            #  + "';AssetState!='Closed'" si on enleve les clos
-            for s, data in stories(
-                conf=conf,
-                s_filter=append_filter,
-                html=html,
-                dic=dic,
-                ver1=ver1,
-                fields=fields,
-                order=order,
-                link=link,
-                asof=asof,
-            ):
-                tab += s
-                datas.append(data)
-        for append_filter in append_filters:
-            for d, data in defect(
-                conf=conf,
-                s_filter=append_filter,
-                html=html,
-                dic=dic,
-                ver1=ver1,
-                fields=fields,
-                order=order,
-                link=link,
-                asof=asof,
-            ):
-                tab += d
-                datas.append(data)
-        tab += "</table>"
-        if image:
-            for s in datas:
-                status = r(s.Status.Name)
-                vals[status] = vals[status] + 1
-            tab += Donut(vals).build().chart_html()
-        put_html(tab, source=conf["url_server"])
-        return tab
-    elif dic:
-        for append_filter in append_filters:
-            for s in stories(
-                conf=conf,
-                s_filter=append_filter,
-                html=html,
-                dic=dic,
-                ver1=ver1,
-                fields=fields,
-                order=order,
-                link=link,
-            ):
-                tickets.append((*s,))
-        for append_filter in append_filters:
-            for d in defect(
-                conf=conf,
-                s_filter=append_filter,
-                html=html,
-                dic=dic,
-                ver1=ver1,
-                fields=fields,
-                order=order,
-                link=link,
-            ):
-                tickets.append((*d,))
-        return tickets
-    elif json:
-        for append_filter in append_filters:
-            for idref, s in stories(
-                conf=conf,
-                s_filter=append_filter,
-                html=html,
-                dic=dic,
-                ver1=ver1,
-                fields=fields,
-                order=order,
-                link=link,
-                json=json,
-                asof=asof,
-            ):
-                ticketsjson[idref] = s
-        for append_filter in append_filters:
-            for idref, d in defect(
-                conf=conf,
-                s_filter=append_filter,
-                html=html,
-                dic=dic,
-                ver1=ver1,
-                fields=fields,
-                order=order,
-                link=link,
-                json=json,
-                asof=asof,
-            ):
-                ticketsjson[idref] = d
-        return ticketsjson
-    else:
-        print(timebox)
-        print("\t", " | ".join([naming[f] for f in fields]), sep="")
-        for append_filter in append_filters:
-            for s in stories(
-                conf=conf,
-                s_filter=append_filter,
-                html=html,
-                dic=dic,
-                ver1=ver1,
-                fields=fields,
-                order=order,
-                link=link,
-            ):
-                print(*s, sep=" | ")
-        for append_filter in append_filters:
-            for d in defect(
-                conf=conf,
-                s_filter=append_filter,
-                html=html,
-                dic=dic,
-                ver1=ver1,
-                fields=fields,
-                order=order,
-                link=link,
-            ):
-                print(*d, sep=" | ")
 
 
-def feature(
+def extract_exist(conf: dict, asof: str, name_extract: str, name_file: str):
+    try:
+        with open(f'{conf["path_data"]}{name_file}.txt', "r") as date_extract:
+            lines = date_extract.readlines()
+        for line in lines:
+            line = line.replace("\n", "")
+            if asof and line.split(":")[0] == name_extract and line[-19:-9] >= asof:
+                return True
+    except FileNotFoundError:
+        pass
+    return False
+
+
+def epic_html(
     conf,
-    append_filters: list[str] = ("",),
-    html: bool = False,
-    dic=False,
+    filters: list[str] = ("",),
     ver1=None,
-    fields=("Number", "Name", "Status.Name", "Estimate", "Timebox.Name", "TaggedWith"),
+    fields=DEFAULT_FIELDS,
     fields_epic: list[str] = ("Name", "Number", "ID"),
     image: bool = False,
-    json: bool = False,
-    children: bool = True,
 ):
     tab = "<style>table.sm, .sm th, .sam td{border: 1px solid black; border-collapse: collapse;padding: 3px;}</style>"
-    ticketsjson = {}
-    for append_filter in append_filters:
+    for s_filter in filters:
         datas = []
-        datas_defect = []
-        for e in ver1.Epic.filter(append_filter).select(*fields_epic):
-            # TODO reprendre list status in config
-            vals = OrderedDict(
-                [
-                    ("", 0),
-                    ("To Do", 0),
-                    ("In Progress", 0),
-                    ("Blocked", 0),
-                    ("In Test", 0),
-                    ("To Integrate", 0),
-                    ("To Test PO", 0),
-                    ("Accepted", 0),
-                    ("Done", 0),
-                ]
-            )
-            if html:
-                epic_url = f"https://{conf['url_server']}/{conf['instance']}/Epic.mvc/Summary?oidToken={e.idref}"
-                tab += (
-                    f'<h1><a href="{epic_url}">{e.Number}:  {escape(e.Name)}</a></h1>'
-                )
-                tab += '<table class="sm"><thead><tr><th>'
-                tab += "</th><th>".join([naming[f] for f in fields])
-                tab += "</th></tr></thead>\n"
-                for s, data in stories(
+        for e in ver1.Epic.filter(s_filter).select(*fields_epic):
+            vals = {status: 0 for status in conf["colors"].keys()}
+            tab += "<style>table.sam, .sam th, .sam td{border: 1px solid black; border-collapse: collapse;padding: 3px;}</style>"
+            epic_url = f"https://{conf['url_server']}/{conf['instance']}/Epic.mvc/Summary?oidToken={e.idref}"
+            tab += f'<h1><a href="{epic_url}">{e.Number}:  {escape(e.Name)}</a></h1>'
+            tab += "<style>.sam tr:nth-child(even){background-color: #F2F3F4}</style>"
+            tab += '\n<table class="sam"><thead><tr><th>'
+            tab += "</th><th>".join([naming[f] for f in fields])
+            tab += "</th></tr></thead>\n"
+            for type_vone in [ver1.Story, ver1.Defect]:
+                for tr, data in tr_html(
                     conf=conf,
-                    s_filter="Super='" + e.idref + "'",
-                    html=html,
-                    dic=dic,
-                    ver1=ver1,
+                    tickets=extract(
+                        s_filter="Super='" + e.idref + "'",
+                        fields=fields,
+                        type_vone=type_vone,
+                    ),
                     fields=fields,
                 ):
-                    tab += s
+                    tab += tr
                     datas.append(data)
-                for s, data in defect(
-                    conf=conf,
-                    s_filter="Super='" + e.idref + "'",
-                    html=html,
-                    dic=dic,
-                    ver1=ver1,
-                    fields=fields,
-                ):
-                    tab += s
-                    datas_defect.append(data)
-                tab += "</table>"
-                if image:
-                    for s in datas:
-                        status = r(s.Status.Name)
-                        vals[status] = vals[status] + 1
-                    tab += Donut(vals).build().chart_html()
-            elif json:
-                if children:
-                    for idref, s in stories(
-                        conf=conf,
+            tab += "</table>"
+            if image:
+                for s in datas:
+                    status = r(s.Status.Name)
+                    vals[status] = vals[status] + 1
+                tab += Donut(values=[vals]).build().chart_html()
+    put_html(tab, source=conf["url_server"])
+    return tab
+
+
+def epic(
+    filters: list[str] = ("",),
+    ver1=None,
+    fields=DEFAULT_FIELDS,
+    fields_epic: list[str] = ("Name", "Number", "ID"),
+    children: bool = True,
+):
+    ticketsjson = {}
+    for s_filter in filters:
+        for e in ver1.Epic.filter(s_filter).select(*fields_epic):
+            if children:
+                for type_vone in [ver1.Story, ver1.Defect]:
+                    for idref, ticket in extract_datas(
                         s_filter="Super='" + e.idref + "'",
-                        html=html,
-                        dic=dic,
-                        ver1=ver1,
                         fields=fields,
-                        json=True,
+                        type_vone=type_vone,
                     ):
-                        ticketsjson[idref] = s
-                    for idref, d in defect(
-                        conf=conf,
-                        s_filter="Super='" + e.idref + "'",
-                        html=html,
-                        dic=dic,
-                        ver1=ver1,
-                        fields=fields,
-                        json=True,
-                    ):
-                        ticketsjson[idref] = d
-                else:
-                    ticketsjson[e.idref] = {}
-                    for c in fields_epic:
-                        ticketsjson[e.idref][c] = r(eval("s." + c, {"s": e}))
+                        ticketsjson[idref] = ticket
             else:
-                if children:
-                    print(e.idref)
-                    print("\t", " | ".join([naming[f] for f in fields]), sep="")
-                    for s in stories(
-                        conf=conf,
-                        s_filter="Super='" + e.idref + "'",
-                        html=html,
-                        dic=dic,
-                        ver1=ver1,
-                        fields=fields,
-                    ):
-                        print(*s, sep=" | ")
-                    for s in defect(
-                        conf=conf,
-                        s_filter="Super='" + e.idref + "'",
-                        html=html,
-                        dic=dic,
-                        ver1=ver1,
-                        fields=fields,
-                    ):
-                        print(*s, sep=" | ")
-                else:
-                    epic_url = f"https://{conf['url_server']}/{conf['instance']}/Epic.mvc/Summary?oidToken={e.idref}"
-                    print(epic_url)
-                    print("\t", " | ".join([naming[f] for f in fields]), sep="")
-                    print(
-                        "\t",
-                        "\t".join([r(eval("d." + f, {"d": e})) for f in fields]),
-                        sep="",
-                    )
-    if html:
-        put_html(tab, source=conf["url_server"])
-        return tab
-    if json:
-        return ticketsjson
+                ticketsjson[e.idref] = {}
+                for c in fields_epic:
+                    ticketsjson[e.idref][c] = r(eval("s." + c, {"s": e}))
+    return ticketsjson
 
 
-def b_html(conf, c, s, number):
+def epic_stroy_defect_txt(
+    conf,
+    filters: list[str] = ("",),
+    ver1=None,
+    fields=DEFAULT_FIELDS,
+    fields_epic: list[str] = ("Name", "Number", "ID"),
+    children: bool = True,
+):
+    for s_filter in filters:
+        for e in ver1.Epic.filter(s_filter).select(*fields_epic):
+            if children:
+                yield e.idref
+                print("\t", " | ".join([naming[f] for f in fields]), sep="")
+                for type_vone in [ver1.Story, ver1.Defect]:
+                    for idref, ticket in extract_datas(
+                        s_filter="Super='" + e.idref + "'",
+                        fields=fields,
+                        type_vone=type_vone,
+                    ):
+                        yield " | ".join(ticket)
+            else:
+                epic_url = f"https://{conf['url_server']}/{conf['instance']}/Epic.mvc/Summary?oidToken={e.idref}"
+                yield epic_url
+                yield "\t", " | ".join([naming[f] for f in fields])
+                yield "\t" + "\t".join([r(eval("d." + f, {"d": e})) for f in fields])
+
+
+def b_html(conf, c, ticket):
     if c == "Number":
+        st = "story" if ticket.Number[0] == "S" else "defect"
+        ticket_url = f"https://{conf['url_server']}/{conf['instance']}/{st}.mvc/Summary?oidToken={ticket.idref}"
+        number = f'<a href="{ticket_url}">{ticket.Number}</a>'
         return number
-    elif c == "Super.Name" and s.Super:
+    elif c == "Super.Name" and ticket.Super:
         sup_url = (
             f"https://{conf['url_server']}/{conf['instance']}/Epic.mvc/Summary?oidToken="
-            + s.Super.idref
+            + ticket.Super.idref
         )
-        return '<a href="' + sup_url + '">' + escape(s.Super.Name) + "</a>"
-    elif c == "Timebox.Name" and s.Timebox:
-        iteration_url = (
-            f"https://{conf['url_server']}/{conf['instance']}/Iteration.mvc/Summary?oidToken="
-            + s.Timebox.idref
-        )
-        return '<a href="' + iteration_url + '">' + s.Timebox.Name + "</a>"
-    elif c == "TaggedWith" and s.TaggedWith:
+        return '<a href="' + sup_url + '">' + escape(ticket.Super.Name) + "</a>"
+    elif c == "Timebox.Name" and ticket.Timebox.Name != "":
+        iteration_url = f"https://{conf['url_server']}/{conf['instance']}/Iteration.mvc/Summary?oidToken={ticket.Timebox.idref}"
+        return '<a href="' + iteration_url + '">' + ticket.Timebox.Name + "</a>"
+    elif c == "TaggedWith" and ticket.TaggedWith:
         tagged = []
-        for ta in s.TaggedWith:
+        for ta in ticket.TaggedWith:
             if ta is not None:
                 tag_url = (
-                    f"https:///{conf['url_server']}/{conf['instance']}/Search.mvc/Tagged?tag="
+                    f"https://{conf['url_server']}/{conf['instance']}/Search.mvc/Tagged?tag="
                     + str(ta)
                 )
                 tagged.append('<a href="' + tag_url + '">' + escape(str(ta)) + "</a>")
         return " ".join(tagged)
     else:
-        return escape(r(eval("s." + c, {"s": s})))
+        return escape(r(eval("ticket." + c, {"ticket": ticket})))
 
 
-def stories(
-    conf,
-    s_filter,
-    html=False,
-    dic=False,
-    ver1=None,
-    fields=None,
-    order=("Super", "-Status", "Order"),
-    link=True,
-    json=False,
-    asof=None,
+def extract_fields(field, datas, ticket, todo_sum):
+    if field in (
+        "ChildrenAndDown.ToDo.@Sum",
+        "ToDo",
+        "ChildrenAndDown[AssetState!='Dead'].ToDo.@Sum",
+    ):
+        todo = r(ticket[field])
+        if todo != "":
+            todo_sum += float(todo)
+            datas["ToDo"] = todo_sum
+    elif field in (
+        "BlockingIssues.Name",
+        "BlockingIssues.AssetState",
+        "BlockingIssues.Number",
+    ):
+        field_blocking = field[15:]
+        for blocking_issue in ticket.BlockingIssues:
+            if "BlockingIssues" in datas:
+                if blocking_issue.idref in datas["BlockingIssues"]:
+                    datas["BlockingIssues"][blocking_issue.idref][field_blocking] = r(
+                        blocking_issue[field_blocking]
+                    )
+                else:
+                    datas["BlockingIssues"][blocking_issue.idref] = {
+                        field_blocking: r(blocking_issue[field_blocking])
+                    }
+            else:
+                datas["BlockingIssues"] = {
+                    blocking_issue.idref: {
+                        field_blocking: r(blocking_issue[field_blocking])
+                    }
+                }
+    elif "Goals" in field:
+        extract_goals_recursive(datas, field, ticket)
+    else:
+        datas[field] = r(eval("ticket." + field, {"ticket": ticket}))
+
+
+def extract_goals_recursive(datas, field, ticket):
+    field_goal = field.split("Goals.")[1]
+    if ".Goals" in field:
+        level_goal = field.split(".Goals")[0] + ".Goals"
+    else:
+        level_goal = "Goals"
+    goals = eval("ticket." + level_goal, {"ticket": ticket})
+    if goals:
+        for goal in goals:
+            if "Goals" in datas:
+                if goal.idref in datas["Goals"]:
+                    datas["Goals"][goal.idref][field_goal] = r(
+                        eval("goal." + field_goal, {"goal": goal})
+                    )
+                else:
+                    datas["Goals"][goal.idref] = {
+                        field_goal: r(eval("goal." + field_goal, {"goal": goal}))
+                    }
+            else:
+                datas["Goals"] = {
+                    goal.idref: {
+                        field_goal: r(eval("goal." + field_goal, {"goal": goal}))
+                    }
+                }
+
+
+def extract_datas(
+    s_filter: str,
+    type_vone,
+    fields: list[str],
+    order: list[str] = ("Super", "-Status", "Order"),
+    asof: str | None = None,
+) -> tuple[str, dict]:
+    for ticket in extract(
+        s_filter=s_filter, type_vone=type_vone, fields=fields, order=order, asof=asof
+    ):
+        datas = {}
+        todo_sum = 0.0
+        for field in fields:
+            extract_fields(field, datas, ticket, todo_sum)
+        datas["idref"] = r(ticket.idref)
+        if "Super.Number" in fields:
+            datas["Super.idref"] = r(ticket.Super.idref)
+        yield ticket.idref, datas
+
+
+def extract(
+    s_filter: str,
+    type_vone,
+    fields: list[str],
+    order: list[str] = ("Super", "-Status", "Order"),
+    asof: str | None = None,
 ):
-    if order is None:
-        order = ("Super", "-Status", "Order")
-    for s in (
-        ver1.Story.select(*fields)
+    for ticket in (
+        type_vone.select(*fields)
         .filter(s_filter)
         .sort(*order)
         .asof([] if asof is None else asof)
     ):
-        if html:
-            story_url = (
-                f"https://{conf['url_server']}/{conf['instance']}/story.mvc/Summary?oidToken="
-                + s.idref
-            )
-            number = '<a href="' + story_url + '">' + s.Number + "</a>"
-            yield "<tr><td>" + "</td><td>".join(
-                [b_html(conf, c, s, number) for c in fields]
-            ) + "</td></tr>\n", s
-        elif dic:
-            if link:
-                story_url = (
-                    f"https://{conf['url_server']}/{conf['instance']}/story.mvc/Summary?oidToken="
-                    + s.idref
-                )
-                number = (
-                    '<a href="'
-                    + story_url
-                    + '" style="text-decoration:none;">'
-                    + s.Number
-                    + "</a>"
-                )
-                yield [b_html(conf, c, s, number) for c in fields]
-            else:
-                yield [r(eval("s." + c, {"s": s})) for c in fields]
-        elif json:
-            d = {}
-            todo_sum = 0.0
-            for c in fields:
-                if c in (
-                    "ChildrenAndDown.ToDo.@Sum",
-                    "ToDo",
-                    "ChildrenAndDown[AssetState!='Dead'].ToDo.@Sum",
-                ):
-                    todo = r(s[c])
-                    if todo != "":
-                        todo_sum += float(todo)
-                        d["ToDo"] = todo_sum
-                elif c in (
-                    "BlockingIssues.Name",
-                    "BlockingIssues.AssetState",
-                    "BlockingIssues.Number",
-                ):
-                    field_blocking = c[15:]
-                    for blocking_issue in s.BlockingIssues:
-                        if "BlockingIssues" in d:
-                            if blocking_issue.idref in d["BlockingIssues"]:
-                                d["BlockingIssues"][blocking_issue.idref][
-                                    field_blocking
-                                ] = r(blocking_issue[field_blocking])
-                            else:
-                                d["BlockingIssues"][blocking_issue.idref] = {
-                                    field_blocking: r(blocking_issue[field_blocking])
-                                }
-                        else:
-                            d["BlockingIssues"] = {
-                                blocking_issue.idref: {
-                                    field_blocking: r(blocking_issue[field_blocking])
-                                }
-                            }
-                elif "Goals" in c:
-                    field_goal = c.split("Goals.")[1]
-                    if ".Goals" in c:
-                        level_goal = c.split(".Goals")[0] + ".Goals"
-                    else:
-                        level_goal = "Goals"
-                    goals = eval("s." + level_goal, {"s": s})
-                    if goals:
-                        for goal in goals:
-                            if "Goals" in d:
-                                if goal.idref in d["Goals"]:
-                                    d["Goals"][goal.idref][field_goal] = r(
-                                        eval("goal." + field_goal, {"goal": goal})
-                                    )
-                                else:
-                                    d["Goals"][goal.idref] = {
-                                        field_goal: r(
-                                            eval("goal." + field_goal, {"goal": goal})
-                                        )
-                                    }
-                            else:
-                                d["Goals"] = {
-                                    goal.idref: {
-                                        field_goal: r(
-                                            eval("goal." + field_goal, {"goal": goal})
-                                        )
-                                    }
-                                }
-                else:
-                    d[c] = r(eval("s." + c, {"s": s}))
-            d["idref"] = r(s.idref)
-            if "Super.Number" in fields:
-                d["Super.idref"] = r(s.Super.idref)
-            yield s.idref, d
-        else:
-            yield "\t" + s.Number, s.Name, r(s.Status.Name), r(s.Estimate), r(
-                s.Timebox.Name
-            )
+        yield ticket
 
 
-def defect(
-    conf,
-    s_filter,
-    html=False,
-    dic=False,
-    ver1=None,
-    fields=None,
-    order=("Super", "-Status", "Order"),
-    link=True,
-    json=False,
-    asof=None,
+def extracts_story_defect(
+    ver1: V1Meta,
+    filters: list[str] = [""],
+    fields: list[str] = DEFAULT_FIELDS,
+    order: list[str] | None = None,
+    asof: str = None,
 ):
-    if order is None:
-        order = ("Super", "-Status", "Order")
-    for d in (
-        ver1.Defect.select(*fields)
-        .filter(s_filter)
-        .sort(*order)
-        .asof([] if asof is None else asof)
-    ):
-        if html:
-            story_url = (
-                f"https://{conf['url_server']}/{conf['instance']}/defect.mvc/Summary?oidToken="
-                + d.idref
-            )
-            number = '<a href="' + story_url + '">' + d.Number + "</a>"
-            yield "<tr><td>" + "</td><td>".join(
-                [b_html(conf, c, d, number) for c in fields]
-            ) + "</td></tr>\n", d
-        elif dic:
-            if link:
-                story_url = (
-                    f"https://{conf['url_server']}/{conf['instance']}/defect.mvc/Summary?oidToken="
-                    + d.idref
-                )
-                number = (
-                    '<a href="'
-                    + story_url
-                    + '" style="text-decoration:none;">'
-                    + d.Number
-                    + "</a>"
-                )
-                yield [b_html(conf, c, d, number) for c in fields]
-            else:
-                yield [r(eval("d." + c, {"d": d})) for c in fields]
-        elif json:
-            di = {}
-            todo_sum = 0.0
-            for c in fields:
-                if c in (
-                    "ChildrenAndDown.ToDo.@Sum",
-                    "ToDo",
-                    "ChildrenAndDown[AssetState!='Dead'].ToDo.@Sum",
-                ):
-                    todo = r(d[c])
-                    if todo != "":
-                        todo_sum += float(todo)
-                        di["ToDo"] = todo_sum
+    tickets = {}
+    for s_filter in filters:
+        for type_vone in [ver1.Story, ver1.Defect]:
+            for idref, s in extract_datas(
+                s_filter=s_filter,
+                fields=fields,
+                order=order,
+                asof=asof,
+                type_vone=type_vone,
+            ):
+                tickets[idref] = s
+    return tickets
 
-                elif c in (
-                    "BlockingIssues.Name",
-                    "BlockingIssues.AssetState",
-                    "BlockingIssues.Number",
-                ):
-                    field_blocking = c[15:]
-                    for blocking_issue in d.BlockingIssues:
-                        if "BlockingIssues" in di:
-                            if blocking_issue.idref in di["BlockingIssues"]:
-                                di["BlockingIssues"][blocking_issue.idref][
-                                    field_blocking
-                                ] = r(blocking_issue[field_blocking])
-                            else:
-                                di["BlockingIssues"][blocking_issue.idref] = {
-                                    field_blocking: r(blocking_issue[field_blocking])
-                                }
-                        else:
-                            di["BlockingIssues"] = {
-                                blocking_issue.idref: {
-                                    field_blocking: r(blocking_issue[field_blocking])
-                                }
-                            }
-                elif "Goals" in c:
-                    field_goal = c.split("Goals.")[1]
-                    field_level_goal = c.split(".Goals")[0].split("Goals")[0] + ".Goals"
-                    for goal in d.Goals:
-                        if "Goals" in di:
-                            if goal.idref in di["Goals"]:
-                                di["Goals"][goal.idref][field_goal] = r(
-                                    goal[field_goal]
-                                )
-                            else:
-                                di["Goals"][goal.idref] = {
-                                    field_goal: r(goal[field_goal])
-                                }
-                                di["Goals"][goal.idref][field_level_goal] = r(
-                                    goal[field_level_goal]
-                                )
-                        else:
-                            di["Goals"] = {
-                                goal.idref: {field_goal: r(goal[field_goal])}
-                            }
-                else:
-                    di[c] = r(eval("d." + c, {"d": d}))
-            di["idref"] = r(d.idref)
-            if "Super.Number" in fields:
-                di["Super.idref"] = r(d.Super.idref)
-            yield d.idref, di
+
+def tr_html(conf, tickets, fields, link: bool = True):
+
+    for ticket in tickets:
+        tab = "<tr><td>"
+        if link:
+            tab += "</td><td>".join([b_html(conf, c, ticket) for c in fields])
         else:
-            yield "\t" + d.Number, d.Name, r(d.Status.Name), r(d.Estimate), r(
-                d.Timebox.Name
+            tab += "</td><td>".join(
+                [escape(r(eval("ticket." + c, {"ticket": ticket}))) for c in fields]
             )
+        tab += "</td></tr>\n"
+        yield tab, ticket
 
 
 def test_versionone():
@@ -724,8 +401,6 @@ def test_versionone():
     with V1Meta(
         address=conf["url_server"],
         instance=conf["instance"],
-        # scheme='https',  # optional, defaults to https
-        # username='',
         password=conf["token"],
         use_password_as_token=True,
     ) as v1:
@@ -750,3 +425,57 @@ def test_versionone():
                 print(t.idref, t.Name, t.Nickname)
             print(s1)
         # Filter by tags: "TaggedWith='MIP0.0.9.0'"
+
+
+def test_epic_html():
+    conf_test = version_one_conf()["projects"]["testV1"]
+    with V1Meta(
+        address=conf_test["url_server"],
+        instance=conf_test["instance"],
+        password=conf_test["token"],
+        use_password_as_token=True,
+    ) as v_one_test:
+        val = "".join(
+            epic_html(
+                conf=conf_test,
+                ver1=v_one_test,
+                filters=['Number="E-01345"'],
+                # image=True,
+            )
+        )
+        assert (
+            "<style>table.sm, .sm th, .sam td{border: 1px solid black; border-collapse: collapse;padding: 3px;}</style>"
+            "<style>table.sam, .sam th, .sam td{border: 1px solid black; border-collapse: collapse;padding: 3px;}"
+            '</style><h1><a href="https://www14.v1host.com/v1sdktesting/Epic.mvc/Summary?oidToken=Epic:43560">E-01345:'
+            '  a</a></h1><style>.sam tr:nth-child(even){background-color: #F2F3F4}</style>\n<table class="sam"><thead>'
+            "<tr><th>Id</th><th>Title</th><th>Status</th><th>Estimate</th><th>Iteration</th><th>Tags</th></tr></thead>"
+            '\n<tr><td><a href="https://www14.v1host.com/v1sdktesting/story.mvc/Summary?oidToken=Story:43561">S-11248'
+            '</a></td><td>test story with epic</td><td></td><td></td><td><a href="https://www14.v1host.com/v1sdktesting'
+            '/Iteration.mvc/Summary?oidToken=Timebox:42438">Sprint 1</a></td><td></td></tr>\n</table>'
+            == val
+        )
+
+
+def test_epic_json():
+    conf_test = version_one_conf()["projects"]["testV1"]
+    with V1Meta(
+        address=conf_test["url_server"],
+        instance=conf_test["instance"],
+        password=conf_test["token"],
+        use_password_as_token=True,
+    ) as v_one_test:
+        val = epic(
+            ver1=v_one_test,
+            filters=['Number="E-01345"'],
+        )
+        assert val == {
+            "Story:43561": {
+                "Estimate": "",
+                "Name": "test story with epic",
+                "Number": "S-11248",
+                "Status.Name": "",
+                "TaggedWith": "[None]",
+                "Timebox.Name": "Sprint 1",
+                "idref": "Story:43561",
+            }
+        }

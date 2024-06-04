@@ -1,7 +1,6 @@
-from typing import List, Tuple
 import matplotlib.pyplot as plt
 from version_one.program_increment import stories_pi
-from version_one.versionone import extracts, get_fields
+from version_one.versionone import extract_tree
 from helpers.prepare_date_sprint import sprint_dates
 from datetime import datetime, timedelta
 from charts.treemap import Treemap
@@ -36,13 +35,21 @@ def build_id(v, i, a, max_super: int) -> str:
     return value + a
 
 
+def get_fields(max_super):
+    fields = ["Estimate", "Timebox.Name", "AssetState", "Team.Name"]
+    for i in range(max_super):
+        for field in ("Number", "Name", "Status.Name"):
+            fields.append("Super." * i + field)
+    return fields
+
+
 def prepare_pi_portfolio(
     conf,
     title: str,
     i_pi: iter = None,
     asof: str = None,
-    append_filters: List[str] = None,
-) -> List:
+    append_filters: list[str] = None,
+) -> list:
     max_super = conf["max_super"]
     if asof:
         title = f"{title} {asof}"
@@ -97,7 +104,7 @@ def prepare_pi_portfolio(
             title=title,
         )
     else:
-        fs = extracts(
+        fs = extract_tree(
             conf=conf,
             fields=fields,
             asof=asof,
@@ -365,8 +372,8 @@ def treemap_pi_portfolio(
     sav: bool = False,
     img: bool = False,
     asof: str | None = None,
-    append_filters: List[str] = [""],
-) -> Tuple[Treemap, str]:
+    append_filters: list[str] = [""],
+) -> list[Treemap, str]:
     (
         names,
         values,

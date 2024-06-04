@@ -1,8 +1,7 @@
 from v1pysdk import V1Meta
-from version_one.versionone import iteration
+from version_one.versionone import extracts_story_defect
 import json
 from datetime import datetime
-from typing import List
 
 
 def stories_pi(
@@ -10,7 +9,7 @@ def stories_pi(
     its: iter,
     fields,
     asof: str | None = None,
-    append_filters: List[str] = [""],
+    append_filters: list[str] = [""],
     title: str = "",
 ) -> iter:
     features = {}
@@ -38,13 +37,9 @@ def stories_pi(
                 ) as fp:
                     ite = json.load(fp)
             else:
-                ite = iteration(
-                    conf=conf,
-                    timebox=it,
-                    json=True,
+                ite = extracts_story_defect(
                     ver1=v1,
-                    link=False,
-                    append_filters=[
+                    filters=[
                         f'Timebox.Name="{it}"{append_filter}'
                         for append_filter in append_filters
                     ],

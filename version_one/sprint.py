@@ -1,7 +1,7 @@
 from v1pysdk import V1Meta
-from version_one.versionone import iteration, naming, r, str_file
-import json
-from datetime import datetime, timedelta
+from version_one.versionone import extracts_story_defect, naming, r
+from helpers.string_helper import str_file
+from datetime import datetime
 from collections import OrderedDict
 from charts.cumulative import Cumulative, previous_date
 from helpers.prepare_date_sprint import (
@@ -10,10 +10,10 @@ from helpers.prepare_date_sprint import (
     tomorrow_sprint_date,
 )
 from HtmlClipboard import put_html
-from typing import List
+import json
 
 
-def extract(conf, asofs, timebox: str, append_filters: List[str], id_filter: str):
+def extract(conf, asofs, append_filters: list[str], id_filter: str):
     with V1Meta(
         address=conf["url_server"],
         instance=conf["instance"],
@@ -37,12 +37,8 @@ def extract(conf, asofs, timebox: str, append_filters: List[str], id_filter: str
                 ):
                     present = True
             if not present:
-                it = iteration(
-                    conf=conf,
-                    timebox=timebox,
-                    json=True,
+                it = extracts_story_defect(
                     ver1=v1,
-                    link=False,
                     fields=(
                         "Number",
                         "Name",
@@ -62,7 +58,7 @@ def extract(conf, asofs, timebox: str, append_filters: List[str], id_filter: str
                         "Super.Goals.Number",
                     ),
                     asof=asof,
-                    append_filters=append_filters,
+                    filters=append_filters,
                 )
                 with open(
                     f"{conf['path_data']}result{str_file(asof)}_{id_filter}.json",
@@ -83,7 +79,7 @@ def read(
     extr: bool = False,
     table: bool = True,
     graph: bool = True,
-    append_filters: List[str] = [
+    append_filters: list[str] = [
         "",
     ],
     asof: str | None = None,
@@ -108,12 +104,14 @@ def read(
         extract(
             conf=conf,
             asofs=asofs,
-            timebox=timebox,
             append_filters=append_filters,
             id_filter=id_filter,
         )
     tab = ""
     if table:
+        tab += "<style>table.sam, .sam th, .sam td{border: 1px solid black; border-collapse: collapse;padding: 3px;}</style>"
+        tab += "<style>.sam tr:nth-child(even){background-color: #F2F3F4}</style>"
+        tab += '\n<table class="sam"><thead><tr><th>'
         datas = {}
         new_story = {}
         remove_story = {}
@@ -209,19 +207,16 @@ def read(
             for rs, rs_values in remove_story.items():
                 ord_portfolio[stories[rs]["Super.Name"]]["nb"] -= 1
                 remove = stories.pop(rs)
-            for story in stories.values():
-                if (
-                    remove["Super.Name"] == story["Super.Name"]
-                    and remove["ord_item"] < story["ord_item"]
-                ):
-                    story["ord_item"] -= 1
+                for story in stories.values():
+                    if (
+                        remove["Super.Name"] == story["Super.Name"]
+                        and remove["ord_item"] < story["ord_item"]
+                    ):
+                        story["ord_item"] -= 1
 
-        tab += "<style>table.sam, .sam th, .sam td{border: 1px solid black; border-collapse: collapse;padding: 3px;}</style>"
-        tab += "<style>.sam tr:nth-child(even){background-color: #F2F3F4}</style>"
-        tab += '\n<table class="sam"><thead><tr><th>'
         if conf["suivi_daily"]:
             fields = ("Super.Name", "Number", "Name", "Estimate", "ToDo")
-            labels = ("Status", "RAE", "New", "Remove", "Date Status", "Day in Status")
+            labels = ("Status", "RAE", "New", "Date Status", "Day in Status")
         else:
             fields = ("Super.Name", "Number", "Name", "Estimate", "ToDo", "Status.Name")
             labels = (
@@ -315,11 +310,7 @@ def read(
                     )
                 tab += "<td>" + ", ".join(blockings) + "</td>"
             tab += "</tr>\n"
-        # for s, data in stories(tags[self.path[1:]], html=True, ver1=v1, fields=fields):
-        #     tab += s
         tab += "</table>"
-        # print(tab)
-        # print(datas)
     if graph:
         datas = {}
         for asof in asofs:
