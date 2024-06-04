@@ -162,6 +162,9 @@ projects:
         field: Estimate
       Timebox:
         field: Timebox.Name
+    status_done:
+      - Done
+      - Closed
     colors:
       Analysis: '#858080'
       Estimate: '#858080'

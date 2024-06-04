@@ -1,11 +1,11 @@
 from datetime import timedelta, date
-from typing import Generator, List
+from typing import Generator
 
 from holidays import country_holidays
 from datetime import datetime
 
 
-def all_holiday(d: str, countries: List[str] = ("FR",)) -> bool:
+def all_holiday(d: str, countries: list[str] = ("FR",)) -> bool:
     for country in countries:
         if d not in country_holidays(country):
             return False
@@ -19,7 +19,7 @@ def sprint_dates(
     now: bool = False,
     limit: str | None = None,
     end_date: str | None = None,
-    countries: List[str] = ("FR",),
+    countries: list[str] = ("FR",),
 ) -> Generator[str, None, None]:
     d = date.fromisoformat(start_date)
     for i in range((7 * weeks) + 1):
@@ -37,7 +37,7 @@ def sprint_dates(
 def previous_sprint_date(
     start_date: str,
     frm: str = "%Y-%m-%d",
-    countries: List[str] = ("FR",),
+    countries: list[str] = ("FR",),
 ) -> str:
     open_date = date.fromisoformat(start_date) - timedelta(days=1)
     while open_date.weekday() >= 5 or all_holiday(open_date, countries=countries):
@@ -48,7 +48,7 @@ def previous_sprint_date(
 def tomorrow_sprint_date(
     start_date: str,
     frm: str = "%Y-%m-%d",
-    countries: List[str] = ("FR",),
+    countries: list[str] = ("FR",),
 ) -> str:
     open_date = date.fromisoformat(start_date) + timedelta(days=1)
     while open_date.weekday() >= 5 or all_holiday(open_date, countries=countries):
@@ -61,7 +61,7 @@ def add_dates(
     frm: str,
     limit_date: date | None,
     end_date: date,
-    countries: List[str] = ("FR",),
+    countries: list[str] = ("FR",),
 ) -> Generator[str, None, None]:
     while d <= end_date:
         if limit_date is None or d <= limit_date:

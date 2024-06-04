@@ -6,6 +6,8 @@ import numpy as np
 
 
 class NestedPie(Chart):
+    values: dict[str, dict[str, float | int]]
+
     def build(self) -> Self:
         fig, ax = plt.subplots()
 

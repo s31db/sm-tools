@@ -1,9 +1,6 @@
-from typing import Tuple
-
-
 def father(
     node: dict, lvl: int
-) -> Tuple[str | None, str | None, str | None, str | None]:
+) -> tuple[str | None, str | None, str | None, str | None]:
     sup = "super" + (".super" * (lvl - 1))
     if sup in node:
         return (
@@ -17,7 +14,7 @@ def father(
 
 def build_tree(
     datas: dict,
-) -> Tuple[dict, dict[str, str | dict[str, dict[str, str | int | float]]]]:
+) -> tuple[dict, dict[str, str | dict[str, dict[str, str | int | float]]]]:
     ids = {}
     for story, values in datas.items():
         ids[story] = {
@@ -102,7 +99,7 @@ def build_tree(
     return tree, ids
 
 
-def test_tree() -> Tuple[dict, dict]:
+def test_tree() -> tuple[dict, dict]:
     example = {
         "us1": {
             "super": "fe1",

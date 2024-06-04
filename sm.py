@@ -126,11 +126,13 @@ def extract_jira(
     )
 
 
-def jiraconf() -> (
-    dict[str, dict[str, dict[str, dict[str, str | int | list[str] | dict[str, str]]]]]
-):
+def jiraconf() -> dict[
+    str,
+    str | dict[str, dict[str, dict[str, str | int | list[str] | dict[str, str]]]],
+]:
     data_conf: dict[
-        str, dict[str, dict[str, dict[str, str | int | list[str] | dict[str, str]]]]
+        str,
+        str | dict[str, dict[str, dict[str, str | int | list[str] | dict[str, str]]]],
     ]
     # common str ou projets de projet avec fields, list, dict
     c = config()

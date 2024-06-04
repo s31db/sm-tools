@@ -1,4 +1,3 @@
-import atlassian.tempo_jira
 from atlassian.tempo import client_v4
 from datetime import timedelta, date, datetime
 import json
