@@ -1,7 +1,3 @@
-const apiUrl = 'audit_fr.json';
-const postUrl = 'save_results';
-const audit_ids = ['squad_health_check', 'kanban', 'Scrum_values', 'Scrum_piliers', 'Scrum'];
-
 // Fonction pour charger les données depuis le service REST
 async function loadData(apiUrl, key) {
     const response = await fetch(apiUrl);

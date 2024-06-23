@@ -19,6 +19,12 @@
 
 <div id="results-container"></div>
 
+<script>
+    const apiUrl = 'audit_fr.json';
+    const postUrl = 'save_results_audit';
+    const audit_ids = ['squad_health_check', 'kanban', 'Scrum_values', 'Scrum_piliers', 'Scrum'];
+</script>
+
 <script src="{{ url_for('static', filename='audit.js') }}"></script>
 
 </body>
