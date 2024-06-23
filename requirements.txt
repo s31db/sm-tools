@@ -1,12 +1,12 @@
 Pillow>=10.2.0
-types-Pillow>=10.1.0.0
+types-Pillow>=10.1.0.2
 pyperclip>=1.8.2
 PyAutoGUI>=0.9.54
 matplotlib>=3.8.2
 numpy>=1.26.3
 pywin32>=306
 squarify>=0.4.3
-plotly>=5.17.0
+plotly>=5.18.0
 pynput>=1.7.6
 pandas>=2.1.4
 pandas-stubs>=2.1.4.231227

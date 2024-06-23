@@ -777,17 +777,32 @@ class JiraSM:
                 json.dump(s, f, indent=2)
         return s
 
-    def sprint_actif(self):
-        for sprint in self._jira.sprints(self._board_id):
-            if sprint.state not in ("closed", "future"):
-                sprint_id = sprint.id
-                sprint_infos = {
-                    "start_date": sprint.activatedDate,
-                    "end_date": sprint.endDate,
-                    "name": sprint.name,
-                    "state": sprint.state,
-                }
-                return sprint_id, sprint_infos
+    def sprint_actif(self) -> tuple[str, dict[str, str | None]]:
+        for sprint in self._jira.sprints(self._board_id, state="active"):
+            sprint_id = sprint.id
+            sprint_infos = {
+                "start_date": sprint.activatedDate,
+                "end_date": sprint.endDate,
+                "name": sprint.name,
+                "state": sprint.state,
+                "goal": sprint.goal,
+            }
+            return sprint_id, sprint_infos
+
+    def previous_sprint(self) -> tuple[str | None, dict[str, str | None] | None]:
+        closed: dict[str, dict[str, str | None]] = {}
+        for sprint in self._jira.sprints(self._board_id, state="closed"):
+            sprint_infos = {
+                "sprint_id": sprint.id,
+                "start_date": sprint.activatedDate,
+                "end_date": sprint.endDate,
+                "name": sprint.name,
+                "state": sprint.state,
+                "goal": sprint.goal,
+            }
+            closed[sprint.endDate] = sprint_infos
+        last_closed = max(closed.keys())
+        return closed[last_closed]["sprint_id"], closed[last_closed]
 
     def workload(self, start_date: str, date_to: str, file: bool = True):
         workloads = []
