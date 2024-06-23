@@ -1,0 +1,76 @@
+{
+  "squad_health_check": {
+    "label": "Squad Health Check",
+    "describer": "Le niveau de santé de l'équipe",
+    "values": [
+      "Délivrer de la valeur",
+      "Facile à déployer",
+      "Amusant",
+      "Santé du code",
+      "Apprentissage",
+      "Mission",
+      "Pions ou joueurs",
+      "Rapidité",
+      "Processus Adapté",
+      "Support",
+      "Travail d'équipe"
+    ]
+  },
+  "kanban": {
+    "label": "Kanban",
+    "describer": "Le processus Kanban",
+    "values": [
+      "Visualiser",
+      "Limiter le travail en cours",
+      "Gérer et mesurer le flux de travail",
+      "Rendre explicite les régles de gestion des processus",
+      "Implémenter des boucles de feedbacks",
+      "S'améliorer de manière collaborative"
+    ]
+  },
+  "Scrum_values": {
+    "label": "Scrum Values",
+    "describer": "Les valeurs de Scrum",
+    "values": [
+      "Engagement",
+      "Focus",
+      "Ouverture",
+      "Respect",
+      "Courage"
+    ]
+  },
+  "Scrum_piliers": {
+    "label": "Scrum Piliers",
+    "describer": "Les piliers de Scrum",
+    "values": [
+      "Transparence",
+      "Inspection",
+      "Adaptation"
+    ]
+  },
+  "Scrum": {
+    "label": "Scrum",
+    "describer": "Le cadre de travail Scrum",
+    "values": [
+      "Scrum",
+      "Stakeholder",
+      "Scrum Team",
+      "Management",
+      "Developer",
+      "Product Owner",
+      "Scrum Master",
+      "Product Goal",
+      "Sprint",
+      "Product Backlog",
+      "Sprint Goal",
+      "Sprint Backlog",
+      "Refinement",
+      "Sprint Planning",
+      "Daily",
+      "Sprint Review",
+      "Sprint Retrospective",
+      "Estimation",
+      "Rythme"
+    ]
+  }
+}
