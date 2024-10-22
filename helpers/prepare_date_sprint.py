@@ -132,3 +132,8 @@ def test_sprint_dates_futur_added():
         "5022-11-28",
         "5022-11-29",
     ]
+
+
+def test_previous_sprint_date():
+    assert previous_sprint_date("2024-04-02") == "2024-03-29"
+    assert previous_sprint_date("2024-04-08") == "2024-04-05"

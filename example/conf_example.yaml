@@ -166,6 +166,7 @@ projects:
       - Done
       - Closed
     colors:
+      '': '#858080'
       Analysis: '#858080'
       Estimate: '#858080'
       To Do: '#999898'

@@ -84,6 +84,43 @@ def test_squad_health_check():
     Radar().build(df).show()
 
 
+def test_squad_health_check2():
+    df = pd.DataFrame(
+        {
+            "group": ["20240405"],
+            "color": ["b"],
+            "Délivrer de la valeur": ((2, 5, 0),),
+            "Facile à déployer": ((0, 6, 2),),
+            "Amusant": ((7, 1, 0),),
+            "Santé du code": ((0, 6, 0),),
+            "Apprentissage": ((7, 1, 0),),
+            "Mission": ((7, 0, 0),),
+            "Pions ou joueurs": ((1, 7, 0),),
+            "Rapidité": ((0, 9, 0),),
+            "Processus Adapté": ((4, 5, 0),),
+            "Support": ((9, 1, 0),),
+            "Travail d'équipe": ((8, 1, 0),),
+            # SAFE
+            "Alignement - Comprendre son client": ((1, 4, 1),),
+            "Transparence - Fournir un accès rapide aux informations nécessaire": (
+                (9, 2, 0),
+            ),
+            "Respect des personnes - Etablir des partenariats à long terme fondés sur des avantages mutuels": (
+                (6, 2, 1),
+            ),
+            "Amélioration sans relâche - Du temps et de la place pour l'innovation": (
+                (6, 2, 1),
+            ),
+            # Leader extension
+            "Sécurité": ((8, 0, 0),),
+            "Prise de décision": ((3, 5, 0),),
+            "Niveau de stress": ((5, 3, 2),),
+            "Culture & Valeurs": ((6, 1, 0),),
+        }
+    )
+    Radar().build(df).show()
+
+
 def test_kanban():
     df = pd.DataFrame(
         {

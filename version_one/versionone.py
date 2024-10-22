@@ -31,6 +31,10 @@ naming = {
     "ChildrenAndDown[AssetState!='Dead'].ToDo.@Sum": "Total To Do Effort",
     "ToDo": "Total To Do Effort",
     "Scope.Name": "Planning Level",
+    "PlannedBusinessValue": "Business Value",
+    "Workitems.SubsAndDown:PrimaryWorkItem.@Sum": "Ticket Count",
+    "Dependencies": "Upstream dependencies",
+    "Dependants": "Downstream dependencies",
 }
 
 
@@ -140,9 +144,9 @@ def extract_exist(conf: dict, asof: str, name_extract: str, name_file: str):
 
 def epic_html(
     conf,
+    ver1: V1Meta,
     filters: list[str] = ("",),
-    ver1=None,
-    fields=DEFAULT_FIELDS,
+    fields: list[str] = DEFAULT_FIELDS,
     fields_epic: list[str] = ("Name", "Number", "ID"),
     image: bool = False,
 ):
@@ -199,13 +203,13 @@ def epic(
                     ):
                         ticketsjson[idref] = ticket
             else:
-                ticketsjson[e.idref] = {}
-                for c in fields_epic:
-                    ticketsjson[e.idref][c] = r(eval("s." + c, {"s": e}))
+                datas = ticketsjson[e.idref] = {}
+                for field in fields_epic:
+                    extract_fields(field=field, datas=datas, ticket=e, todo_sum=None)
     return ticketsjson
 
 
-def epic_stroy_defect_txt(
+def epic_story_defect_txt(
     conf,
     filters: list[str] = ("",),
     ver1=None,
@@ -232,36 +236,60 @@ def epic_stroy_defect_txt(
                 yield "\t" + "\t".join([r(eval("d." + f, {"d": e})) for f in fields])
 
 
+def data_field(field, ticket):
+    if isinstance(dict, ticket):
+        return ticket[field]
+    else:
+        # return getattr(ticket, field)
+        return eval("ticket." + field, {"ticket": ticket})
+
+
 def b_html(conf, c, ticket):
     if c == "Number":
-        st = "story" if ticket.Number[0] == "S" else "defect"
-        ticket_url = f"https://{conf['url_server']}/{conf['instance']}/{st}.mvc/Summary?oidToken={ticket.idref}"
-        number = f'<a href="{ticket_url}">{ticket.Number}</a>'
-        return number
-    elif c == "Super.Name" and ticket.Super:
-        sup_url = (
-            f"https://{conf['url_server']}/{conf['instance']}/Epic.mvc/Summary?oidToken="
-            + ticket.Super.idref
+        st = (
+            "story"
+            if ticket["Number"][0] == "S"
+            else "goal" if ticket["Number"][0] == "G" else "defect"
         )
-        return '<a href="' + sup_url + '">' + escape(ticket.Super.Name) + "</a>"
-    elif c == "Timebox.Name" and ticket.Timebox.Name != "":
-        iteration_url = f"https://{conf['url_server']}/{conf['instance']}/Iteration.mvc/Summary?oidToken={ticket.Timebox.idref}"
-        return '<a href="' + iteration_url + '">' + ticket.Timebox.Name + "</a>"
+        idref = data_field("idref", ticket)
+        # try:
+        #     idref = ticket["idref"]
+        # except KeyError:
+        #     idref = ticket.idref
+        ticket_url = f"https://{conf['url_server']}/{conf['instance']}/{st}.mvc/Summary?oidToken={idref}"
+        number = f'<a href="{ticket_url}">{ticket["Number"]}</a>'
+        return number
+    elif c == "Super.Name":
+        super_idref = data_field("idref", ticket)
+        if super_idref:
+            sup_url = f"https://{conf['url_server']}/{conf['instance']}/Epic.mvc/Summary?oidToken={super_idref}"
+            return f'<a href="{sup_url}">{escape(ticket.Super.Name)}</a>'
+        return ""
+    elif c == "Timebox.Name":
+        iteration_idref = data_field("Timebox.idref", ticket)
+        iteration_url = f"https://{conf['url_server']}/{conf['instance']}/Iteration.mvc/Summary?oidToken={iteration_idref}"
+        return f'<a href="{iteration_url}">{data_field("Timebox.Name", ticket)}</a>'
+    elif c in ("Depencies", "Dependants"):
+        deps = data_field()
+        deps_datas = []
+        if deps:
+            for dep in deps:
+                deps_datas += b_html(conf, "Number", dep)
+        return " ".join(deps_datas)
     elif c == "TaggedWith" and ticket.TaggedWith:
         tagged = []
         for ta in ticket.TaggedWith:
             if ta is not None:
-                tag_url = (
-                    f"https://{conf['url_server']}/{conf['instance']}/Search.mvc/Tagged?tag="
-                    + str(ta)
-                )
+                tag_url = f"https://{conf['url_server']}/{conf['instance']}/Search.mvc/Tagged?tag={ta}"
                 tagged.append('<a href="' + tag_url + '">' + escape(str(ta)) + "</a>")
         return " ".join(tagged)
     else:
         return escape(r(eval("ticket." + c, {"ticket": ticket})))
 
 
-def extract_fields(field, datas, ticket, todo_sum):
+def extract_fields(
+    field, datas, ticket, todo_sum, exclude_status: list[str] | None = None
+):
     if field in (
         "ChildrenAndDown.ToDo.@Sum",
         "ToDo",
@@ -294,18 +322,65 @@ def extract_fields(field, datas, ticket, todo_sum):
                     }
                 }
     elif "Goals" in field:
-        extract_goals_recursive(datas, field, ticket)
+        extract_goals_recursive(datas, field, ticket, exclude_status=exclude_status)
+    elif "Dependencies" in field:
+        extract_field_recursive(datas, field, ticket, field_family="Dependencies")
+    elif "Dependants" in field:
+        extract_field_recursive(datas, field, ticket, field_family="Dependencies")
     else:
         datas[field] = r(eval("ticket." + field, {"ticket": ticket}))
 
 
-def extract_goals_recursive(datas, field, ticket):
+def extract_field_recursive(datas, field: str, ticket, field_family: str):
+    field_recursive = field.split(f"{field_family}.")[1]
+    if f".{field_family}" in field:
+        if ticket.idref in datas[field_family]:
+            level_super_field = field.split(f".{field_family}")[0]
+            level_field = f"{level_super_field}.{field_family}"
+            tickets = data_field(level_field, ticket)
+        else:
+            tickets = data_field(field_family, ticket)
+        if tickets:
+            for ticket in tickets:
+                if field_family in datas:
+                    if ticket.idref in datas[field_family]:
+                        datas[field_family][ticket.idref][field_recursive] = r(
+                            eval("ticket." + field_recursive, {"ticket": ticket})
+                        )
+                    else:
+                        datas[field_family][ticket.idref] = {
+                            field: r(eval("ticket." + field, {"ticket": ticket}))
+                        }
+                else:
+                    datas[field_family] = {
+                        ticket.idref: {
+                            field_recursive: {
+                                field: r(
+                                    eval(
+                                        "ticket." + field_recursive, {"ticket": ticket}
+                                    )
+                                )
+                            }
+                        }
+                    }
+
+
+def extract_goals_recursive(
+    datas, field, ticket, exclude_status: list[str] | None = None
+):
+    if exclude_status or ticket.Status.Name in exclude_status:
+        return None
     field_goal = field.split("Goals.")[1]
-    if ".Goals" in field:
-        level_goal = field.split(".Goals")[0] + ".Goals"
+    if "SuperAndUp" in field:
+        goals = [father.Goals for father in ticket.SuperAndUp]
+    elif "SuperAndMe" in field:
+        goals = [father.Goals for father in ticket.SuperAndMe]
+    elif ".Goals" in field:
+        level_super_field = field.split(".Goals")[0]
+        level_field = f"{level_super_field}.Goals"
+        goals = data_field(level_field, ticket)
     else:
-        level_goal = "Goals"
-    goals = eval("ticket." + level_goal, {"ticket": ticket})
+        goals = data_field("Goals", ticket)
     if goals:
         for goal in goals:
             if "Goals" in datas:
@@ -331,6 +406,7 @@ def extract_datas(
     fields: list[str],
     order: list[str] = ("Super", "-Status", "Order"),
     asof: str | None = None,
+    exclude_status: list[str] | None = None,
 ) -> tuple[str, dict]:
     for ticket in extract(
         s_filter=s_filter, type_vone=type_vone, fields=fields, order=order, asof=asof
@@ -338,7 +414,7 @@ def extract_datas(
         datas = {}
         todo_sum = 0.0
         for field in fields:
-            extract_fields(field, datas, ticket, todo_sum)
+            extract_fields(field, datas, ticket, todo_sum, exclude_status)
         datas["idref"] = r(ticket.idref)
         if "Super.Number" in fields:
             datas["Super.idref"] = r(ticket.Super.idref)
@@ -365,8 +441,9 @@ def extracts_story_defect(
     ver1: V1Meta,
     filters: list[str] = [""],
     fields: list[str] = DEFAULT_FIELDS,
-    order: list[str] | None = None,
+    order: list[str] = ("Super", "-Status", "Order"),
     asof: str = None,
+    exclude_status: list[str] | None = None,
 ):
     tickets = {}
     for s_filter in filters:
@@ -377,9 +454,43 @@ def extracts_story_defect(
                 order=order,
                 asof=asof,
                 type_vone=type_vone,
+                exclude_status=exclude_status,
             ):
                 tickets[idref] = s
     return tickets
+
+
+def extract_goals(conf, filters, fields):
+    goals = {}
+    with V1Meta(
+        address=conf["url_server"],
+        instance=conf["instance"],
+        password=conf["token"],
+        use_password_as_token=True,
+    ) as ver1:
+        for filtre in filters:
+            for g in (
+                ver1.Goal.select(*fields)
+                .filter(filtre)
+                .sort("-PlannedBusinessValue", "-Scope.Name")
+            ):
+                goal = goals[g.idref] = {"idref": g.idref, "Workitems": []}
+                for field in fields:
+                    if ".@" in field:
+                        goal[field] = r(eval("g." + field))
+                    elif "Workitems." in field:
+                        for work_item in g.Workitems:
+                            if work_item.idref in goal["Workitems"]:
+                                goal["Workitems"][work_item.idref][field[10:]] = r(
+                                    data_field(field[10:], work_item)
+                                )
+                            else:
+                                goal["Workitems"][work_item.idref] = {
+                                    field[10:]: data_field(field[10:], work_item)
+                                }
+                    else:
+                        goal[field] = r(data_field(field, g))
+    return goals
 
 
 def tr_html(conf, tickets, fields, link: bool = True):

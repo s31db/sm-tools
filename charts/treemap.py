@@ -142,6 +142,18 @@ class Treemap(Chart):
     def chart_html(self, full_html: bool = True) -> str:
         return self.fig.to_html(include_plotlyjs="cdn", full_html=full_html)
 
+    def chart_html_fix(self) -> str:
+        i = self.img64()[0]
+        print(i)
+        return '<img src="data:image/png;base64,' + i + '" alt="" />'
+
+    def copy_html(self, source: str = "S@M") -> Self:
+        from HtmlClipboard import put_html
+
+        tab = self.chart_html_fix()
+        put_html(tab, source=source)
+        return self
+
 
 def test_treemap():
     import json

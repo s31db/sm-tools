@@ -14,6 +14,7 @@ from sm import (
 from html import escape, unescape
 from version_one.sprint import read as read_sprint
 from version_one.tree_version_one import treemap_pi_portfolio
+from version_one.program_increment import analyse_pi, features_pi
 from datetime import datetime
 
 hostname = "localhost"
@@ -365,6 +366,12 @@ class MyServer(BaseHTTPRequestHandler):
                                 limit_today=now,
                             ):
                                 self.w(line)
+                        elif action == b"analyse_pi":
+                            self.w(analyse_pi(project))
+                        elif action == b"features_pi":
+                            # self.w(features_pi())
+                            for line in features_pi(project):
+                                self.w(line, append=True)
                 self.wl("</details>")
         if self.path == "/":
             self.index()
