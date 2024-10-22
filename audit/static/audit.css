@@ -1,0 +1,67 @@
+table {
+    border-collapse: collapse;
+    margin-top: 20px;
+    margin-right: 5%;
+}
+th, td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: center;
+    cursor: pointer;
+}
+td:first-child {
+    text-align: left;
+}
+th {
+    background-color: #f2f2f2;
+}
+h2 {
+    clear: both;
+}
+td:first-child {
+    min-width: 800px; /* Largeur minimale pour les phrases */
+    max-width: 800px; /* Largeur maximale pour les phrases */
+}
+.emoji-cell {
+    max-width: 50px;
+    min-width: 50px;
+    max-height: 22px;
+    height: 22px;
+    font-size: 17px; /* Ajuster la taille de la police pour la hauteur de la cellule */
+}
+.data-cell {
+    font-size: 18px;
+}
+#submit-button {
+    font-size: 16px;
+    position: fixed;
+    left: 70%;
+    top: 20px;
+    background-color: green;
+    color: white;
+}
+.identifier {
+    font-size: 16px;
+    position: absolute;
+    left: 35%;
+    top: 20px;
+}
+#results-container {
+            clear: both;
+            margin-top: 20px;
+}
+.validation {
+    position: fixed;
+    top: 5px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: green;
+    color: white;
+    padding: 8px;
+    text-align: center;
+    z-index: 999;
+    font-size: 40px;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+    box-sizing: border-box;
+}
