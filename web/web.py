@@ -266,7 +266,6 @@ class MyServer(BaseHTTPRequestHandler):
                                     graph=False,
                                     append_filters=[filtre],
                                     conf=conf,
-                                    timebox=conf["timebox"]["name"],
                                     asof=asof,
                                     start_date=start,
                                     end_date=end,
