@@ -270,7 +270,7 @@ def b_html(conf, c, ticket):
         iteration_url = f"https://{conf['url_server']}/{conf['instance']}/Iteration.mvc/Summary?oidToken={iteration_idref}"
         return f'<a href="{iteration_url}">{data_field("Timebox.Name", ticket)}</a>'
     elif c in ("Depencies", "Dependants"):
-        deps = data_field()
+        deps = data_field(c, ticket)
         deps_datas = []
         if deps:
             for dep in deps:

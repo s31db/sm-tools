@@ -489,7 +489,15 @@ def graph_goals(
     if real:
         goals_v1 = extract_goals(
             conf=conf,
-            filter_goal=filter_goal,
+            filters=[filter_goal],
+            fields=[
+                "Number",
+                "Name",
+                "PlannedBusinessValue",
+                "Team.Name",
+                "Workitems.SubsAndDown:PrimaryWorkitem.@Count",
+                "Workitems.SubsAndDown.@Count",
+            ],
         )
         goals_v1, goals = analyse_tickets_goals(
             conf=conf,
@@ -540,8 +548,6 @@ def graph_goals(
         # "Backlog": "#999898",
         # "Todo": "#ff9900",
     }
-    print(colors),
-    print(datas)
     if len(conf["pi"].keys()) > 5:
         colors["It 6"] = "#36295e"
     colors["Backlog"] = "#999898"

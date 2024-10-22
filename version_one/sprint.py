@@ -70,12 +70,10 @@ def extract(conf, asofs, append_filters: list[str], id_filter: str):
                     date_export.write(
                         f"{asof}: {datetime.today().strftime('%Y-%m-%d %H:%M:%S')}: {id_filter}\n"
                     )
-    # print(it)
 
 
 def read(
     conf,
-    timebox: str,
     extr: bool = False,
     table: bool = True,
     graph: bool = True,
@@ -122,7 +120,6 @@ def read(
         asof_prec = None
         stories = OrderedDict()
         ord_item = 0
-        # ord_portfolio = []
         ord_portfolio = {}
         for asof in asofs:
             with open(
@@ -293,9 +290,9 @@ def read(
             tab += "<td"
             if last_status[key]["name"] in ("In Progress",):
                 if last_status[key]["time_in"] > 5:
-                    tab += f' style="background-color: red"'
+                    tab += ' style="background-color: red"'
                 elif last_status[key]["time_in"] > 2:
-                    tab += f' style="background-color: orange"'
+                    tab += ' style="background-color: orange"'
             tab += f">{last_status[key]['time_in']}</td>"
             if "BlockingIssues" in values:
                 blockings = []
