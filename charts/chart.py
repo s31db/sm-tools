@@ -1,23 +1,17 @@
 import matplotlib.pyplot as plt
-import win32clipboard
 from base64 import b64encode
 from io import BytesIO
 from PIL import Image
 from HtmlClipboard import put_html
-from typing import Self
-
-
-def send_to_clipboard(clip_type: int, data: bytes) -> None:
-    win32clipboard.OpenClipboard()
-    win32clipboard.EmptyClipboard()
-    win32clipboard.SetClipboardData(clip_type, data)
-    win32clipboard.CloseClipboard()
+from typing_extensions import Self
+from helpers.clipboard import send_to_clipboard_image
 
 
 class Chart:
     _title: str
+    _path_export: str
 
-    def __init__(self, *args: str, **kwargs: str | bool) -> None:
+    def __init__(self, *args: str, **kwargs: str | bool | int | dict | list) -> None:
         if args:
             self._title = args[0]
         for key, value in kwargs.items():
@@ -27,13 +21,8 @@ class Chart:
         self._title = title
         return self
 
-    def copy_clipboard_img(self, filepath: str) -> Self:
-        image = Image.open(filepath)
-        output = BytesIO()
-        image.convert("RGB").save(output, "BMP")
-        data = output.getvalue()[14:]
-        output.close()
-        send_to_clipboard(win32clipboard.CF_DIB, data)
+    def copy_clipboard(self, data) -> Self:
+        send_to_clipboard_image(data)
         return self
 
     def img64(self, format_img: str = "png") -> tuple[str, Self]:
@@ -57,4 +46,36 @@ class Chart:
 
     def save(self, filepath: str, format_img: str = "png", dpi: int = 90) -> Self:
         plt.savefig(filepath, format=format_img, dpi=dpi)
+        return self
+
+    def sequence(
+        self,
+        filenames: list[str],
+        format_img: str = "gif",
+        duration: int = 3,
+        loop: int | None = 1,
+    ) -> Self:
+        for filename in filenames:
+            img = Image.open(filename)
+            img.verify()
+        frames = [Image.open(filename) for filename in filenames]
+        # set the first frame as last image
+        frame_one = frames[-1]
+        if loop is None:
+            frame_one.save(
+                f"{self._path_export}/{self._title}.{format_img}",
+                format=format_img,
+                save_all=True,
+                append_images=frames,
+                duration=duration,
+            )
+        else:
+            frame_one.save(
+                f"{self._path_export}/{self._title}.{format_img}",
+                format=format_img,
+                save_all=True,
+                append_images=frames,
+                duration=duration,
+                loop=loop,
+            )
         return self

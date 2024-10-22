@@ -1,9 +1,15 @@
 from datetime import timedelta, date
 from typing import Generator
 
-# https://github.com/etalab/jours-feries-france
-from jours_feries_france import JoursFeries
+from holidays import country_holidays
 from datetime import datetime
+
+
+def all_holiday(d: str, countries: list[str] = ("FR",)) -> bool:
+    for country in countries:
+        if d not in country_holidays(country):
+            return False
+    return True
 
 
 def sprint_dates(
@@ -13,10 +19,11 @@ def sprint_dates(
     now: bool = False,
     limit: str | None = None,
     end_date: str | None = None,
+    countries: list[str] = ("FR",),
 ) -> Generator[str, None, None]:
     d = date.fromisoformat(start_date)
     for i in range((7 * weeks) + 1):
-        if d.weekday() < 5 and not JoursFeries.is_bank_holiday(d):
+        if d.weekday() < 5 and not all_holiday(d, countries=countries):
             yield d.strftime(frm)
         d += timedelta(days=1)
     limit_date = date.fromisoformat(limit) if limit else None
@@ -27,12 +34,38 @@ def sprint_dates(
         yield from add_dates(d, frm, limit_date, end_date=date.fromisoformat(end_date))
 
 
+def previous_sprint_date(
+    start_date: str,
+    frm: str = "%Y-%m-%d",
+    countries: list[str] = ("FR",),
+) -> str:
+    open_date = date.fromisoformat(start_date) - timedelta(days=1)
+    while open_date.weekday() >= 5 or all_holiday(open_date, countries=countries):
+        open_date -= timedelta(days=1)
+    return open_date.strftime(frm)
+
+
+def tomorrow_sprint_date(
+    start_date: str,
+    frm: str = "%Y-%m-%d",
+    countries: list[str] = ("FR",),
+) -> str:
+    open_date = date.fromisoformat(start_date) + timedelta(days=1)
+    while open_date.weekday() >= 5 or all_holiday(open_date, countries=countries):
+        open_date += timedelta(days=1)
+    return open_date.strftime(frm)
+
+
 def add_dates(
-    d, frm: str, limit_date: date | None, end_date: date
+    d,
+    frm: str,
+    limit_date: date | None,
+    end_date: date,
+    countries: list[str] = ("FR",),
 ) -> Generator[str, None, None]:
     while d <= end_date:
         if limit_date is None or d <= limit_date:
-            if d.weekday() < 5 and not JoursFeries.is_bank_holiday(d):
+            if d.weekday() < 5 and not all_holiday(d, countries=countries):
                 yield d.strftime(frm)
         d += timedelta(days=1)
 
@@ -99,3 +132,8 @@ def test_sprint_dates_futur_added():
         "5022-11-28",
         "5022-11-29",
     ]
+
+
+def test_previous_sprint_date():
+    assert previous_sprint_date("2024-04-02") == "2024-03-29"
+    assert previous_sprint_date("2024-04-08") == "2024-04-05"

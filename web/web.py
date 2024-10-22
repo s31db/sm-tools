@@ -1,5 +1,5 @@
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from urllib.parse import parse_qs
+from urllib.parse import parse_qs, quote
 from HtmlClipboard import put_html
 from sm import (
     jiraconf,
@@ -12,7 +12,10 @@ from sm import (
     worklog_plan_html,
 )
 from html import escape, unescape
-
+from version_one.sprint import read as read_sprint
+from version_one.tree_version_one import treemap_pi_portfolio
+from version_one.program_increment import analyse_pi, features_pi
+from datetime import datetime
 
 hostname = "localhost"
 serverPort = 8000
@@ -25,13 +28,35 @@ class MyServer(BaseHTTPRequestHandler):
         self.send_response(200)
 
         if self.path.startswith("/treemap"):
-            sfx = None
             self.send_header("Content-type", "text/html")
             self.end_headers()
-            j = jira_treemap(
-                project=self.path.split("project=")[1], date_file=sfx, html=False
-            ).chart_html()
-            self.w(j)
+            project = self.path.split("project=")[1].split("&")[0]
+            asof = (
+                self.path.split("asof=")[1].split("&")[0]
+                if "asof=" in self.path
+                else None
+            )
+            conf = jiraconf()["projects"][project]
+            if "type" in conf and conf["type"] == "version_one":
+                append_filters = [self.path.split("filter=")[1]]
+                if asof:
+                    title = f"{project} Treemap {' or '.join(append_filters)} {asof}"
+                else:
+                    title = f"{project} Treemap {' or '.join(append_filters)} {datetime.today().strftime('%Y-%m-%d %H:%M:%S')}"
+                j = treemap_pi_portfolio(
+                    conf=conf,
+                    title=title,
+                    append_filters=append_filters,
+                    asof=asof,
+                    sav=False,
+                    img=False,
+                    show=False,
+                )[0]
+            else:
+                j = jira_treemap(
+                    project=self.path.split("project=")[1], date_file=asof, html=False
+                )
+            self.w(j.chart_html())
         else:
             print(self.path)
             self.send_header("Content-type", "text/html")
@@ -76,13 +101,16 @@ class MyServer(BaseHTTPRequestHandler):
         dataconf = jiraconf()
         for key, conf in dataconf["projects"].items():  # type: ignore
             self.wl(
-                f'<input name="projects" type="checkbox" value="{key}">{key}</input>'
+                f'<input name="projects" type="checkbox" value="{key}">{key} - {escape(conf["name"])}</input>'
             )
             self.w(f"<label for='{key}_filter'>Filtre : </label>")
             self.wl(
                 f"<input name='{key}_filter' id='{key}_filter' "
                 f"type='text' value='{escape(conf['filter'])}' size='200'/>"
             )
+            self.w(f"<label for='{key}_asof'>Asof : </label>")
+            self.w(f"<input type='date' name='{key}_asof' id='{key}_asof'/>")
+
             self.w(f"<label for='{key}_start'>From : </label>")
             self.w(
                 f"<input name='{key}_start' id='{key}_start' type='text' "
@@ -186,7 +214,8 @@ class MyServer(BaseHTTPRequestHandler):
         )
         self.w("La copie dans le presse-papiers est faite !")
         self.w("</div>")
-        sfx = None
+        dataconf = jiraconf()
+        projects = dataconf["projects"]
         if b"projects" in req:
             for b_project in req[b"projects"]:
                 actions = b_project + b"_actions"
@@ -196,6 +225,7 @@ class MyServer(BaseHTTPRequestHandler):
                 b_now = b_project + b"_now"
                 b_weeks = b_project + b"_weeks"
                 b_step = b_project + b"_step"
+                b_asof = b_project + b"_asof"
 
                 project = b_project.decode("utf-8")
                 filtre = unescape(req[b_filtre][0].decode("utf-8"))
@@ -204,39 +234,94 @@ class MyServer(BaseHTTPRequestHandler):
                 now = b_now in req
                 weeks = int(req[b_weeks][0].decode("utf-8"))
                 step = int(req[b_step][0].decode("utf-8"))
+                conf = projects[project]
+                if req[b_asof][0] == b"":
+                    asof = None
+                else:
+                    asof = unescape(req[b_asof][0].decode("utf-8"))
 
-                self.w("<details open><summary>" + project + "</summary>")
                 self.w(
-                    '<a href="/treemap?project='
-                    + project
-                    + '" download="'
-                    + project
-                    + '_treemap.html">'
+                    f"<details open><summary>{project} - {escape(conf['name'])}</summary>"
                 )
-                self.wl("Treemap file</a>")
+                if "type" in conf and conf["type"] == "version_one":
+                    self.w(
+                        f'<a href="https://{conf["url_server"]}/{conf["instance"]}/TeamRoom.mvc/Show/{conf["teamRoom"]}">Team Room</a>'
+                    )
+                    link_treemap = f"/treemap?project={project}"
+                    if asof:
+                        link_treemap += f"&asof={asof}"
+                    link_treemap += f"&filter={quote(filtre)}"
+                    self.w(f'<a href="{link_treemap}"')
+                else:
+                    self.w(f'<a href="/treemap?project={project}"')
+                self.wl(f' download="{project}_treemap.html">Treemap file</a>')
                 if actions in req:
                     for action in req[actions]:
                         if action == b"Extract":
                             self.wl(filtre)
-                            extract_jira(
-                                project=project, start_date=start, filtre=filtre
-                            )
+                            if "type" in conf and conf["type"] == "version_one":
+                                read_sprint(
+                                    extr=True,
+                                    table=False,
+                                    graph=False,
+                                    append_filters=[filtre],
+                                    conf=conf,
+                                    asof=asof,
+                                    start_date=start,
+                                    end_date=end,
+                                    weeks=weeks,
+                                    now=now,
+                                )
+                            else:
+                                extract_jira(
+                                    project=project,
+                                    start_date=start,
+                                    filtre=filtre,
+                                    asof=asof,
+                                )
                         elif action == b"Cumulative":
-                            j = jira_cum(
-                                project=project,
-                                details=True,
-                                date_file=sfx,
-                                weeks=weeks,
-                                start_date=start,
-                                step=step,
-                                chart_html=True,
-                                now=now,
-                            )
+                            if "type" in conf and conf["type"] == "version_one":
+                                j = read_sprint(
+                                    extr=False,
+                                    table=False,
+                                    graph=True,
+                                    append_filters=[filtre],
+                                    conf=conf,
+                                    asof=asof,
+                                    start_date=start,
+                                    end_date=end,
+                                    weeks=weeks,
+                                    now=now,
+                                )
+                            else:
+                                j = jira_cum(
+                                    project=project,
+                                    date_file=asof,
+                                    weeks=weeks,
+                                    start_date=start,
+                                    step=step,
+                                    chart_html=True,
+                                    now=now,
+                                )
                             self.wl(j, append=True)
                         elif action == b"Treemap":
-                            j = jira_treemap(project=project, date_file=sfx, html=False)
+                            if "type" in conf and conf["type"] == "version_one":
+                                j = treemap_pi_portfolio(
+                                    conf=conf,
+                                    title=project + " " + filtre,
+                                    sav=False,
+                                    img=False,
+                                    show=False,
+                                    asof=asof,
+                                    append_filters=[filtre],
+                                )[0]
+                            else:
+                                j = jira_treemap(
+                                    project=project, date_file=asof, html=False
+                                )
                             self.wl(
-                                j.chart_html().split("<body>")[-1].split("</body>")[0]
+                                # j.chart_html().split("<body>")[-1].split("</body>")[0]
+                                j.chart_html(full_html=False)
                             )
                         elif action == b"TreemapEpic":
                             for n, t, a in analysis_tree(project):
@@ -246,6 +331,20 @@ class MyServer(BaseHTTPRequestHandler):
                                     + t.split("<body>")[-1].split("</body>")[0]
                                     + "</details>"
                                 )
+                        elif action == b"Suivi":
+                            j = read_sprint(
+                                extr=False,
+                                table=True,
+                                graph=False,
+                                append_filters=[filtre],
+                                conf=conf,
+                                asof=asof,
+                                start_date=start,
+                                end_date=end,
+                                weeks=weeks,
+                                now=now,
+                            )
+                            self.wl(j, append=True)
                         elif action == b"time_nb":
                             self.wl(time_nb(project))
                         elif action == b"Burndown":
@@ -264,6 +363,12 @@ class MyServer(BaseHTTPRequestHandler):
                                 limit_today=now,
                             ):
                                 self.w(line)
+                        elif action == b"analyse_pi":
+                            self.w(analyse_pi(project))
+                        elif action == b"features_pi":
+                            # self.w(features_pi())
+                            for line in features_pi(project):
+                                self.w(line, append=True)
                 self.wl("</details>")
         if self.path == "/":
             self.index()

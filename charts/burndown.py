@@ -84,7 +84,7 @@ def test_burdown() -> None:
     # assert Burndown(title4="Exple")._title4 == "Exple"
     b = (
         Burndown(title="Exple Test", start_is_max=False)
-        .dates(["26/11", "27/11", "28/11", "29/11"])
+        .dates(["26/11", "28/11", "29/11", "30/11"])
         .values([15, 13])
         .build()
     )

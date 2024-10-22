@@ -1,9 +1,8 @@
+from charts.chart import Chart
 import seaborn as sns
 import pandas as pd
 import matplotlib.pyplot as plt
-
-
-from charts.chart import Chart
+from typing import Self
 
 
 class Scatter(Chart):
@@ -22,8 +21,9 @@ class Scatter(Chart):
     _palette: str | None
     _ncol_legend: int | None
     _filtre: str | None = None
+    _figsize: tuple[int, int] = (10, 5)
 
-    def by_date(self):
+    def by_date(self) -> Self:
         self._x = "date"
         self._y = "tps_t"
         self._xtick = None
@@ -60,12 +60,11 @@ class Scatter(Chart):
         return self
 
     def build(self):
-        sns.set_theme(style="white")
+        sns.set_theme(style="white", rc={"figure.figsize": self._figsize})
 
         d = pd.DataFrame(self._values.values())
         if self._filtre:
             d = d.query(self._filtre)
-        print(d.head())
 
         g = sns.relplot(
             x=self._x,
@@ -79,9 +78,10 @@ class Scatter(Chart):
             sizes=(40, 400),
             alpha=0.5,
             palette=self._palette,
-            height=6,
+            height=self._figsize[1],
             data=d,
             legend=self._legend,
+            aspect=self._figsize[0] / self._figsize[1],
         )
 
         if self._xtick:
@@ -120,3 +120,77 @@ class Scatter(Chart):
             )
 
         return self
+
+
+def float_to_int(value: float):
+    if value is None:
+        return 0
+    elif float(value) % 1 == 0:
+        return int(float(value))
+    return value
+
+
+def test_scatter():
+    import json
+    from datetime import datetime
+
+    y_m_d = "%Y-%m-%d"
+
+    with open("../example/example.json", "r", encoding="utf-8") as fp:
+        datas_sm = json.load(fp)
+
+    tickets = []
+    dates_end = {}
+    dates_l = list(datas_sm.keys())
+    for da in dates_l:
+        for ticket, value in datas_sm[da].items():
+            if ticket not in tickets and value["status"] in ("Done", "Closed"):
+                # Find start: In progress
+                for st_da in dates_l:
+                    # if datas_sm[da][ticket]["created"][:10] <= st_da:
+                    if ticket in datas_sm[st_da]:
+                        if (
+                            datas_sm[st_da][ticket]["status"] is not None
+                            and datas_sm[st_da][ticket]["status"] != ""
+                        ):
+                            if da not in dates_end:
+                                dates_end[da] = {}
+                            estimate = (
+                                float_to_int(datas_sm[da][ticket]["estimate"])
+                                if "estimate" in datas_sm[da][ticket]
+                                else 1
+                            )
+                            dates_end[da][ticket] = {
+                                "tps": (
+                                    datetime.strptime(da, y_m_d)
+                                    - datetime.strptime(st_da, y_m_d)
+                                ).days,
+                                "tps_t": dates_l.index(da) - dates_l.index(st_da),
+                                "estimate": estimate,
+                                "date": da[2:7],
+                            }
+                            break
+                tickets.append(ticket)
+    print(dates_end)
+    datas = {}
+    estimat = {}
+    for ts in dates_end.values():
+        for key, t in ts.items():
+            es = int(float(t["estimate"]) * 10 if t["estimate"] is not None else 0)
+            if es in estimat:
+                estimat[es].append(t["tps_t"])
+            else:
+                estimat[es] = [t["tps_t"]]
+            datas[key] = t
+    estimat = dict(sorted(estimat.items(), key=lambda item: item[0]))
+    assert {10: [1], 20: [5], 30: [0], 40: [2, 1, 0]} == estimat
+
+    s = (
+        Scatter(
+            values=datas,
+            filtre="tps_t <= tps_t.quantile(.95) & tps_t >= tps_t.quantile(.05)",
+        )
+        .by_date()
+        .build()
+    )
+    s.show()

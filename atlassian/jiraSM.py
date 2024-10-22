@@ -202,6 +202,9 @@ class JiraSM:
     _super: dict
     _board_id: int
     _trc: bool = False
+    _user: str
+    _token_auth: str
+    _verify_ssl: bool = True
 
     def __init__(self, **kwargs):
         for key, value in kwargs.items():
@@ -213,7 +216,11 @@ class JiraSM:
                 server=self._url_server, basic_auth=(self._user, self._token_auth)
             )
         else:
-            self._jira = JIRA(server=self._url_server, token_auth=self._token_auth)
+            self._jira = JIRA(
+                server=self._url_server,
+                options={"verify": self._verify_ssl},
+                token_auth=self._token_auth,
+            )
         return self
 
     def __enter__(self):
@@ -404,9 +411,11 @@ class JiraSM:
                 if task.fields.aggregatetimeestimate is not None:
                     print(
                         task,
-                        task.fields.assignee
-                        if task.fields.assignee
-                        else "Non assignée",
+                        (
+                            task.fields.assignee
+                            if task.fields.assignee
+                            else "Non assignée"
+                        ),
                         task.fields.summary,
                         self.link_browse(task.key),
                         task.fields.status,
@@ -417,9 +426,11 @@ class JiraSM:
                         " ".join(
                             (
                                 str(task),
-                                str(task.fields.assignee)
-                                if task.fields.assignee
-                                else "Not assigned",
+                                (
+                                    str(task.fields.assignee)
+                                    if task.fields.assignee
+                                    else "Not assigned"
+                                ),
                                 task.fields.summary,
                                 self.link_browse(task.key),
                                 str(task.fields.status),
@@ -435,7 +446,7 @@ class JiraSM:
             # task.update(update={"timetracking_remainingestimate": "0h"})
 
     def link_browse(self, key: str):
-        return self._url_server + "browse/" + key
+        return self._url_server + "/browse/" + key
 
     def false_status(self):
         # sprint_field = self._fields['sprints']['field']
@@ -497,11 +508,13 @@ class JiraSM:
                 if task.fields.aggregatetimeestimate is not None:
                     print(
                         task,
-                        task.fields.assignee
-                        if task.fields.assignee
-                        else "Non assignée",
+                        (
+                            task.fields.assignee
+                            if task.fields.assignee
+                            else "Non assignée"
+                        ),
                         task.fields.summary,
-                        self._url_server + "browse/" + task.key,
+                        self._url_server + "/browse/" + task.key,
                         task.fields.status,
                         task.fields.aggregatetimeestimate / 3600,
                         "h",
@@ -510,11 +523,13 @@ class JiraSM:
                         " ".join(
                             (
                                 str(task),
-                                str(task.fields.assignee)
-                                if task.fields.assignee
-                                else "Not assigned",
+                                (
+                                    str(task.fields.assignee)
+                                    if task.fields.assignee
+                                    else "Not assigned"
+                                ),
                                 task.fields.summary,
-                                self._url_server + "browse/" + task.key,
+                                self._url_server + "/browse/" + task.key,
                                 str(task.fields.status),
                                 str(task.fields.aggregatetimeestimate / 3600) + "h",
                             )
@@ -523,11 +538,19 @@ class JiraSM:
                     )
 
     def epic_ticket(
-        self, dates: list, filtre: str = "", suffix: str = "", file: bool = True
+        self,
+        dates: list,
+        filtre: str = "",
+        suffix: str = "",
+        file: bool = True,
+        asof: str | None = None,
     ) -> tuple[dict, str]:
         epics_date: dict = {}
         us_date: dict = {}
-        now = datetime.now().strftime(Y_M_D)
+        if asof:
+            now = asof
+        else:
+            now = datetime.now().strftime(Y_M_D)
         (
             epics_changelogs,
             epics_fields,
@@ -572,7 +595,13 @@ class JiraSM:
             )
 
             self._epic_ticket_changelog(
-                created, dates, epics_date, ticket, tickets_changelogs, us_date
+                created,
+                dates,
+                epics_date,
+                ticket,
+                tickets_changelogs,
+                us_date,
+                asof=asof,
             )
 
         if epics_no_rights:
@@ -580,8 +609,10 @@ class JiraSM:
                 "Right to see {} ?".format(" ".join(epics_no_rights.keys()))
             )
             logging.warning("Exemple ticket from epic: {}".format(epics_no_rights))
-
-        now = datetime.now().strftime(Y_M_D)
+        if asof:
+            now = asof
+        else:
+            now = datetime.now().strftime(Y_M_D)
         path_file = (
             self._path_data
             + now.replace("-", "")
@@ -630,7 +661,14 @@ class JiraSM:
                 )
 
     def _epic_ticket_changelog(
-        self, created, dates, epics_date, ticket, tickets_changelogs, us_date
+        self,
+        created,
+        dates,
+        epics_date,
+        ticket,
+        tickets_changelogs,
+        us_date,
+        asof: str | None = None,
     ):
         for changelog in ticket.changelog.histories:
             changelog_date = changelog.created[:10]
@@ -642,14 +680,21 @@ class JiraSM:
                         else tickets_changelogs[changelog_item.field]
                     )
                     for date in dates:
-                        if (
-                            created
-                            <= date
-                            < changelog_date
-                            <= us_date[date][ticket.key]["update"][field]
-                        ):
-                            us_date[date][ticket.key][field] = changelog_item.fromString
-                            us_date[date][ticket.key]["update"][field] = changelog_date
+                        if asof and asof > date:
+                            break
+                        else:
+                            if (
+                                created
+                                <= date
+                                < changelog_date
+                                <= us_date[date][ticket.key]["update"][field]
+                            ):
+                                us_date[date][ticket.key][
+                                    field
+                                ] = changelog_item.fromString
+                                us_date[date][ticket.key]["update"][
+                                    field
+                                ] = changelog_date
                 elif changelog_item.field in (self._super["field_changelog"],):
                     change_super(
                         changelog_date,
@@ -750,7 +795,7 @@ class JiraSM:
                 tickets_fields.append(value["field"].split(".")[0])
         return epics_changelogs, epics_fields, tickets_changelogs, tickets_fields
 
-    def sprints(self, file: bool = True):
+    def sprints(self, file: bool = True, asof: str | None = None):
         s = {}
         for sprint in self._jira.sprints(self._board_id):
             if sprint.state == "future":
@@ -763,7 +808,10 @@ class JiraSM:
                     "name": sprint.name,
                     "state": sprint.state,
                 }
-        now = datetime.now().strftime("%Y-%m-%d")
+        if asof:
+            now = asof
+        else:
+            now = datetime.now().strftime("%Y-%m-%d")
         if file:
             path_file = (
                 self._path_data

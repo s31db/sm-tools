@@ -56,17 +56,26 @@ class Barcompare(Chart):
         return self
 
 
-if __name__ == "__main__":
+def test_barcompare_plan_realized():
     Barcompare("Scores by planned and realized").nodes(
         {
             "Planned PI": {"Planned": 137, "Done": 96.5},
             "Realized PI": {"Planned": 183.25, "Done": 124},
         }
     ).width_bar(0.35).build().show()
-    # Bar('Scores by planned and middle and realized').nodes({
-    #     'Planned PI': {'Planned': 137, 'Done': 96.5}, 'Middle PI': {'Planned': 150, 'Done': 110},
-    #     'Realized PI': {'Planned': 183.25, 'Done': 124}
-    # }).build().show()
+
+
+def test_barcompare_plan_middle_realized():
+    Barcompare("Scores by planned and middle and realized").nodes(
+        {
+            "Planned PI": {"Planned": 137, "Done": 96.5},
+            "Middle PI": {"Planned": 150, "Done": 110},
+            "Realized PI": {"Planned": 183.25, "Done": 124},
+        }
+    ).build().show()
+
+
+def test_barcompare_plan_middle_realized_with_tests():
     Barcompare("Scores by planned and middle and realized with Tests").nodes(
         {
             "Planned PI": {"Planned": 137, "Tests": 15, "Done": 96.5},
