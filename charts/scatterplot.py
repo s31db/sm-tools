@@ -28,9 +28,9 @@ class Scatter(Chart):
         self._y = "tps_t"
         self._xtick = None
         self._size = None
-        # self._size = 'estimate'
-        self._size_order = None
-        # self._size_order = [0.5, 1.0, 2.0, 3.0, 5.0, 8.0, 13.0]
+        self._size = "estimate"
+        # self._size_order = None
+        self._size_order = [0.5, 1.0, 2.0, 3.0, 5.0, 8.0, 13.0]
         self._hue = None
         # self._hue = 'estimate'
         self._hue_order = None
@@ -110,9 +110,10 @@ class Scatter(Chart):
                 linestyle="--",
             )
             plt.text(
-                ylim + 0.2,
+                ylim + 0.02,
                 percent_val,
-                "percent " + str(int(percent * 100)),
+                # "percent " + str(int(percent * 100)),
+                f"{int(percent * 100)}ᵉ",
                 horizontalalignment="left",
                 size="medium",
                 color=color,

@@ -1,3 +1,4 @@
+import logging
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import parse_qs, quote
 from HtmlClipboard import put_html
@@ -10,6 +11,7 @@ from sm import (
     time_nb,
     burndown,
     worklog_plan_html,
+    anime,
 )
 from html import escape, unescape
 from version_one.sprint import read as read_sprint
@@ -94,6 +96,7 @@ class MyServer(BaseHTTPRequestHandler):
             "Cumulative": None,
             "Treemap": None,
             "TreemapEpic": None,
+            "Anime": None,
             "time_nb": None,
         }
         self.wl('<form method="post" action="/action">')
@@ -319,6 +322,21 @@ class MyServer(BaseHTTPRequestHandler):
                                 j = jira_treemap(
                                     project=project, date_file=asof, html=False
                                 )
+                        elif action == b"Anime":
+                            if "type" in conf and conf["type"] == "version_one":
+                                # TODO anime version_one
+                                pass
+                            else:
+                                anime(
+                                    title="Treemap " + project,
+                                    start_date=start,
+                                    end_date=end,
+                                    weeks=weeks,
+                                    now=now,
+                                    project=project,
+                                    date_file=asof,
+                                    html=False,
+                                )
                             self.wl(
                                 # j.chart_html().split("<body>")[-1].split("</body>")[0]
                                 j.chart_html(full_html=False)
@@ -377,6 +395,7 @@ class MyServer(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
+    # logging.root.setLevel(logging.DEBUG)
     webServer = HTTPServer((hostname, serverPort), MyServer)
     print("Explore htt", "p://", hostname, ":", serverPort, sep="")
     try:

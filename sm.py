@@ -12,6 +12,7 @@ import yaml
 from yaml.loader import SafeLoader
 from atlassian.jiraSM import JiraSM
 from atlassian.tempo_jira import Tempo
+import logging
 
 Y_M_D = "%Y-%m-%d"
 
@@ -54,14 +55,20 @@ def jira_treemap(
     date_file: str | None = None,
     html: bool = False,
     show: bool = False,
+    asof: str | None = None,
+    fake: bool = False,
 ):
-    data_conf, n, now = get_tree(project, suffix, date_file)
+    data_conf, n, now = get_tree(
+        project=project, suffix=suffix, date_file=date_file, asof=asof
+    )
     t = Treemap(
         project + " " + now,
         global_parent=project,
         nodes=n,
         **data_conf["projects"][project],
-    ).build()
+    )
+    if not fake:
+        t.build()
     if html:
         t.html()
     if show:
@@ -69,14 +76,46 @@ def jira_treemap(
     return t
 
 
-def get_tree(project: str, suffix: str = "", date_file: str | None = None) -> tuple[
+def anime(
+    title: str,
+    start_date: str | None = None,
+    weeks: int | None = None,
+    end_date: str | None = None,
+    now: bool = False,
+    **kwargs,
+):
+    filenames: list[str] = []
+    tomorrow = (datetime.today() + timedelta(days=1)).strftime("%Y%m%d")
+    asofs_all = [
+        *sprint_dates(start_date=start_date, weeks=weeks, end_date=end_date, now=now)
+    ]
+    asofs = [d for d in asofs_all if d <= tomorrow]
+    treemap = None
+    for asof_d in asofs:
+        if asof_d <= tomorrow:
+            treemap = jira_treemap(asof=asof_d, fake=False, **kwargs)
+            filename = treemap.png()[0]
+            filenames.append(filename)
+    if treemap:
+        treemap.title(title + "_animation")
+        treemap.sequence(filenames=filenames, duration=1000, loop=None)
+
+
+def get_tree(
+    project: str,
+    suffix: str = "",
+    date_file: str | None = None,
+    asof: str | None = None,
+) -> tuple[
     dict[str, dict[str, dict[str, str | list[str] | int | float]]],
     dict[str, str | dict[str, dict[str, str | int | float]]],
     str,
 ]:
-    now = datefile(date_file)
+    now = datefile(asof if asof else date_file)
     data_conf, datas_sm = prepare_data(
-        project=project, suffix=suffix, date_file=date_file
+        project=project,
+        suffix=suffix,
+        date_file=date_file,
     )
     n = tree.build_tree(datas_sm[now])[1]
     return data_conf, n, now
@@ -91,7 +130,7 @@ def prepare_data(project: str, suffix: str, date_file: str | None = None) -> tup
     ] = jiraconf()
     now = datefile(date_file)
     path_file = f"{data_conf['projects'][project]['path_data']}{now.replace('-', '')}{project}_{suffix}.json"
-    print(f"file:///{path_file}", path_file)
+    logging.info(f"file:///{path_file} {path_file}")
     with open(path_file, "r", encoding="utf-8") as fp:
         # dict de date de ticket avec update ou fields
         datas_sm: dict[str, dict[str, dict[str, None | str | int | dict[str, str]]]] = (
@@ -138,6 +177,9 @@ def jiraconf() -> dict[
     c = config()
     with open(c.JIRA.conf, "r", encoding="utf-8") as f:
         data_conf = yaml.load(f, Loader=SafeLoader)
+    for k, v in data_conf["projects"].items():
+        if "token_auth" in v and v["token_auth"] == "$JIRA.token_auth":
+            v["token_auth"] = c.JIRA.token_auth
     return data_conf
 
 
@@ -836,7 +878,8 @@ def time_nb(project: str, suffix: str = "", date_file: str | None = None):
                                     ).days,
                                     "tps_t": dates_l.index(da) - dates_l.index(st_da),
                                     "estimate": estimate,
-                                    "date": da[2:7] + "-" + weeks_of_mounth(da),
+                                    # "date": da[2:7] + "-" + weeks_of_mounth(da),
+                                    "date": da[2:7],
                                 }
                                 break
                     tickets.append(ticket)
@@ -857,6 +900,7 @@ def time_nb(project: str, suffix: str = "", date_file: str | None = None):
 
     # s = Scatter(values=datas, filtre='tps_t <= tps_t.quantile(.95) & tps_t >= tps_t.quantile(.05)').by_date().build()
     s = Scatter(values=datas).by_date().build()
+    # s = Scatter(values=datas).by_estimate().build()
     # s.show()
 
     # Find repartition, time with estimate and cost

@@ -93,7 +93,9 @@ def add_super(
             us_date[date][ticket.key][SUPER_NAME] = (
                 ticket_super[-1].split(",name=")[-1].split(",startDate=")[0]
             )
-            us_date[date][ticket.key][SUPER_STATUS] = ""
+            us_date[date][ticket.key][SUPER_STATUS] = (
+                ticket_super[-1].split(",state=")[-1].split(",name=")[0]
+            )
             us_date[date][ticket.key]["super.type"] = "Sprint"
         else:
             us_date[date][ticket.key][SUPER] = ticket_super
@@ -732,8 +734,19 @@ class JiraSM:
     def _prepare_epics(
         self, dates, epics_changelogs, epics_date: dict, epics_fields, now
     ):
+        filter_project = self._filter_project()
+        if "type" in self._super and self._super["type"] == "Epic":
+            if "other_projects" in self._super:
+                filter_project = f"( {filter_project} or project = {" or project = ".join(self._super["other_projects"])})"
+        elif (
+            "super" in self._super
+            and "type" in self._super["super"]
+            and self._super["super"]["type"] == "Epic"
+        ):
+            if "other_projects" in self._super["super"]:
+                filter_project = f"( {filter_project} or project = {" or project = ".join(self._super["super"]["other_projects"])})"
         for epic in self.search(
-            jql_str=self._filter_project() + " AND type = Epic ORDER BY key asc",
+            jql_str=filter_project + " AND type = Epic ORDER BY key asc",
             max_results=False,
             fields=", ".join(epics_fields),
             expand="changelog",

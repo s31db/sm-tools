@@ -55,11 +55,22 @@ class Radar(Chart):
             loc = df.loc[i]
             values = loc.drop("group").drop("color").to_numpy().flatten().tolist()
             values += values[:1]
-            ax.plot(angles, values, linewidth=1, linestyle="solid", label=loc.group)
+            ax.plot(
+                angles, values, linewidth=1 + i / 5, linestyle="solid", label=loc.group
+            )
             ax.fill(angles, values, loc.color, alpha=0.1)
 
         # Add legend
         plt.legend(loc="upper right", bbox_to_anchor=(0.1, 0.1))
+        ax.set_title(
+            self._title,
+            loc="left",
+            fontweight="normal",
+            fontsize=13,
+            color="grey",
+            y=1.1,
+            x=-0.1,
+        )
         return self
 
 
