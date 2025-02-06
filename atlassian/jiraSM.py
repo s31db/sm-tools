@@ -207,6 +207,7 @@ class JiraSM:
     _user: str
     _token_auth: str
     _verify_ssl: bool = True
+    _order_by: str = "key asc"
 
     def __init__(self, **kwargs):
         for key, value in kwargs.items():
@@ -569,7 +570,7 @@ class JiraSM:
             else ""
         )
         for ticket in self.search(
-            jql_str=f"{self._filter_project()}{type_tickets}{filtre} ORDER BY key asc",
+            jql_str=f"{self._filter_project()}{type_tickets}{filtre} ORDER BY {self._order_by}",
             max_results=False,
             expand="changelog",
             trc=False,
@@ -675,7 +676,9 @@ class JiraSM:
         for changelog in ticket.changelog.histories:
             changelog_date = changelog.created[:10]
             for changelog_item in changelog.items:
+                field_change_treated = False
                 if changelog_item.field in tickets_changelogs:
+                    field_change_treated = True
                     field = (
                         "name"
                         if changelog_item.field == "summary"
@@ -689,7 +692,7 @@ class JiraSM:
                                 created
                                 <= date
                                 < changelog_date
-                                <= us_date[date][ticket.key]["update"][field]
+                                < us_date[date][ticket.key]["update"][field]
                             ):
                                 us_date[date][ticket.key][
                                     field
@@ -697,7 +700,8 @@ class JiraSM:
                                 us_date[date][ticket.key]["update"][
                                     field
                                 ] = changelog_date
-                elif changelog_item.field in (self._super["field_changelog"],):
+                if changelog_item.field in (self._super["field_changelog"],):
+                    field_change_treated = True
                     change_super(
                         changelog_date,
                         changelog_item,
@@ -708,9 +712,10 @@ class JiraSM:
                         us_date,
                         self._super,
                     )
-                elif SUPER in self._super and changelog_item.field in (
+                if SUPER in self._super and changelog_item.field in (
                     self._super[SUPER]["field_changelog"],
                 ):
+                    field_change_treated = True
                     change_super(
                         changelog_date,
                         changelog_item,
@@ -721,7 +726,10 @@ class JiraSM:
                         us_date,
                         self._super,
                     )
-                elif changelog_item.field not in self._fields_change_ignored:
+                if (
+                    not field_change_treated
+                    and changelog_item.field not in self._fields_change_ignored
+                ):
                     logging.debug(
                         "Field not ignored {} {} {} ".format(
                             changelog_item.field,
@@ -907,7 +915,7 @@ class JiraSM:
         # )[0]
         tickets_fields = ["parent", "created"]
         for ticket in self.search(
-            jql_str=self._filter_project() + filtre + " ORDER BY key asc",
+            jql_str=f"{self._filter_project()} {filtre} ORDER BY {self._order_by}",
             max_results=False,
             expand="changelog",
             trc=False,
