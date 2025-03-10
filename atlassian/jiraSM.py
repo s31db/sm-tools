@@ -35,6 +35,7 @@ def add_super(
     ticket: Issue,
     us_date: dict,
     _super: dict,
+    epic_fields: dict,
 ):
     # if 'type' in _super['super'] and _super['super']['type'] == 'Epic' and
     # ticket_super_super is not None and ticket_super_super not in epics_date[date]:
@@ -64,6 +65,16 @@ def add_super(
             us_date[date][ticket.key][SUPER_SUPER_NAME] = (
                 ticket_super_super[-1].split(",name=")[-1].split(",startDate=")[0]
             )
+        elif (
+            "type" in _super["super"]
+            and _super["super"]["type"] == "Epic"
+            and epic_fields
+        ):
+            super_super_id = ticket_super_super
+            for epic_field in epic_fields.keys():
+                us_date[date][ticket.key]["super.super." + epic_field] = epics_date[
+                    date
+                ][ticket_super_super][epic_field]
         else:
             super_super_id = ticket_super_super
             # if 'type' in _super['super'] and _super['super']['type'] == 'Epic':
@@ -661,6 +672,7 @@ class JiraSM:
                     ticket,
                     us_date,
                     self._super,
+                    self._epic_fields,
                 )
 
     def _epic_ticket_changelog(
@@ -790,6 +802,56 @@ class JiraSM:
                                     epics_changelogs[field]
                                 ] = changelog_date
 
+    def epics(self, filtre: str, dates: list[str], now: str):
+        epics_date = {}
+        for date in dates:
+            epics_date[date] = {}
+        epics_changelogs = {}
+        epics_fields = []
+        for key, value in self._epic_fields.items():
+            if "field_changelog" in value:
+                epics_changelogs[value["field_changelog"]] = key
+            if "field" in value:
+                epics_fields.append(value["field"].split(".")[0])
+
+        for epic in self.search(
+            jql_str=f"{self._filter_project()} {filtre} AND type = Epic ORDER BY key asc",
+            max_results=False,
+            fields=", ".join(epics_fields),
+            expand="changelog",
+        ):
+            created = epic.fields.created[:10]
+            for date in dates:
+                if created <= date:
+                    epics_date[date][epic.key] = {"update": {}}
+                    for epic_field, epic_field_conf in self._epic_fields.items():
+                        epics_date[date][epic.key][epic_field] = attrgetter(
+                            epic_field_conf["field"]
+                        )(epic.fields)
+                        epics_date[date][epic.key]["update"][epic_field] = now
+
+            for changelog in epic.changelog.histories:
+                changelog_date = changelog.created[:10]
+                for changelog_item in changelog.items:
+                    field = changelog_item.field
+                    if field in epics_changelogs:
+                        for date in dates:
+                            if (
+                                created
+                                <= date
+                                < changelog_date
+                                <= epics_date[date][epic.key]["update"][
+                                    epics_changelogs[field]
+                                ]
+                            ):
+                                epics_date[date][epic.key][
+                                    epics_changelogs[field]
+                                ] = changelog_item.fromString
+                                epics_date[date][epic.key]["update"][
+                                    epics_changelogs[field]
+                                ] = changelog_date
+        return epics_date
+
     def _prepare_epic_ticket(
         self, dates: list[str], epics_date: dict, now: str, us_date: dict
     ):
@@ -820,7 +882,14 @@ class JiraSM:
         s = {}
         for sprint in self._jira.sprints(self._board_id):
             if sprint.state == "future":
-                s[sprint.id] = {"name": sprint.name, "state": sprint.state}
+                s[sprint.id] = {
+                    "name": sprint.name,
+                    "state": sprint.state,
+                }
+                try:
+                    s[sprint.id]["goal"] = sprint.goal
+                except AttributeError:
+                    pass
             else:
                 # s[sprint.id] = {'start_date': sprint.activatedDate[:10], 'end_date': sprint.completeDate[:10],
                 s[sprint.id] = {
@@ -828,6 +897,7 @@ class JiraSM:
                     "end_date": sprint.endDate[:10],
                     "name": sprint.name,
                     "state": sprint.state,
+                    "goal": sprint.goal,
                 }
         if asof:
             now = asof

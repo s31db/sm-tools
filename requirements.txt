@@ -26,3 +26,4 @@ v1pysdk @ git+https://github.com/s31db/VersionOne.SDK.Python.git@master
 # klaxoon @ git+https://github.com/s31db/klaxoon.git@master
 flask>=3.0.3
 kaleido>=1.0.0rc0
+duckdb>=1.1.3

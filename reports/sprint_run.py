@@ -5,31 +5,87 @@ from sm import jiraconf
 from charts.barhorizontal import BarHorizontal
 from datetime import datetime
 from helpers.string_helper import r
+from atlassian.jiraSM import JiraSM
 
 
 def dates(start_date, weeks, end_date=None, exclude_dates=None):
     return [
         i
-        for i in sprint_dates(start_date, weeks, end_date=end_date)
+        for i in sprint_dates(
+            start_date[:10], weeks, end_date=end_date[:10] if end_date else None
+        )
         if not (exclude_dates and i in exclude_dates)
     ]
 
 
-def sprint_run(code, sprints, with_name, date, html=True):
-    dataconf = jiraconf()
-    colors = dataconf["projects"][code]["colors"]
-    url_server = dataconf["projects"][code]["url_server"]
-    path_export = dataconf["projects"][code]["path_export"]
-    with open(
-        f"{dataconf["projects"][code]["path_data"]}{date}{code}_.json",
-        "r",
-        encoding="utf-8",
-    ) as fp:
-        data = json.load(fp)
-    if html:
-        sprint_run_html(url_server, colors, code, data, sprints, with_name, path_export)
+def sprint_actif(project: str, conf: dict, previous: bool = False):
+    with JiraSM(project=project, **conf).conn() as conn:
+        if previous:
+            sprint_id, sprint_infos = conn.previous_sprint()
+        else:
+            sprint_id, sprint_infos = conn.sprint_actif()
+        return sprint_infos
+
+
+def sprint_run(
+    project: str,
+    sprints: list | None,
+    with_name: bool,
+    date: str | None,
+    html: bool = True,
+    previous: bool = False,
+    file: bool = True,
+    db: bool = False,
+):
+    conf = jiraconf()["projects"][project]
+    if sprints is None:
+        sprints = (sprint_actif(project=project, conf=conf, previous=previous),)
+    if date is None:
+        date = datetime.today().strftime("%Y%m%d")
+    colors = conf["colors"]
+    url_server = conf["url_server"]
+    path_export = conf["path_export"]
+    if db:
+        from db.db_project import tickets
+
+        data = tickets(project=project)
+    else:
+        with open(
+            f"{conf["path_data"]}{date}{project}_.json",
+            "r",
+            encoding="utf-8",
+        ) as fp:
+            data = json.load(fp)
+
+    if html and not file:
+        tab = ""
+        for sprint in sprints:
+            tab += "".join(
+                by_sprint_html(
+                    url_server=url_server,
+                    colors=colors,
+                    data=data,
+                    name_sprint=sprint["name"],
+                    start_date=sprint["start_date"],
+                    weeks=sprint.get("weeks", 3),
+                    end_date=sprint.get("end_date", None),
+                    exclude_dates=sprint.get("exclude_dates", None),
+                    with_name=with_name,
+                )
+            )
+    elif html:
+        tab = sprint_run_html(
+            url_server,
+            colors,
+            project,
+            data,
+            sprints,
+            with_name,
+            path_export,
+        )
     else:
         sprint_run_chart(colors, data, sprints, with_name)
+    return tab
 
 
 def sprint_run_chart(colors, data, sprints, with_name):
@@ -101,7 +157,7 @@ def by_sprint_html(
         exclude_dates=exclude_dates,
     )
     yield f"<p>{name_sprint}</p>"
-    yield "<table style='border: 1px solid'><tr><th>id</th>"
+    yield "<table style='border: 1px solid; font-size: 14px'><tr><th>id</th>"
     ticket_sprint = calcul_tickets_sprint(
         data=data, html=True, name_sprint=name_sprint, sds=sds, with_name=with_name
     )
@@ -109,35 +165,31 @@ def by_sprint_html(
         yield f"<th>{sd}</th>"
     yield "</tr>"
     for k, s in ticket_sprint.items():
-        if not (
-            s["name"].startswith("RUN / PROD Sprint")
-            or s["name"].startswith("RUN/PROD Sprint")
-        ):
-            link = f"<a href='{url_server}browse/{k}'>{k}</a>"
-            if with_name:
-                yield f"<tr><td>{link} {s["name"]}</td>"
-            else:
-                yield f"<tr><td>{link}</td>"
-            n = 1
-            status = None
-            for sd in sds:
-                if sd <= datetime.today().strftime("%Y-%m-%d"):
-                    if sd in s:
-                        if status:
-                            yield f"<td colspan={n} style='background-color: {colors[status]}'>{status} {r(s["estimate"][sd])}</td>"
-                            n = 1
-                        status = s[sd]
-                        last_sd = sd
+        link = f"<a href='{url_server}browse/{k}'>{k}</a>"
+        if with_name:
+            yield f"<tr><td>{link} {s["name"]}</td>"
+        else:
+            yield f"<tr><td>{link}</td>"
+        n = 1
+        status = None
+        for sd in sds:
+            if sd <= datetime.today().strftime("%Y-%m-%d"):
+                if sd in s:
+                    if status:
+                        yield f"<td colspan={n} style='background-color: {colors[status]}'>{status} {r(s["estimate"][sd])}</td>"
+                        n = 1
+                    status = s[sd]
+                    last_sd = sd
+                else:
+                    if status:
+                        n += 1
                     else:
-                        if status:
-                            n += 1
-                        else:
-                            yield f"<td id='{k}_{sd}'></td>"
-            yield f"<td colspan={n} style='background-color: {colors[status]}'>{status} {r(s["estimate"][last_sd])}</td>"
-            for sd in sds:
-                if sd > datetime.today().strftime("%Y-%m-%d"):
-                    yield "<td style='background-color: white'/>"
-            yield "</tr>"
+                        yield f"<td id='{k}_{sd}'></td>"
+        yield f"<td colspan={n} style='background-color: {colors[status]}'>{status} {r(s["estimate"][last_sd])}</td>"
+        for sd in sds:
+            if sd > datetime.today().strftime("%Y-%m-%d"):
+                yield "<td style='background-color: white'/>"
+        yield "</tr>"
     yield "</table>"
 
 

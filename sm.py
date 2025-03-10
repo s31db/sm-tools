@@ -121,21 +121,28 @@ def get_tree(
     return data_conf, n, now
 
 
-def prepare_data(project: str, suffix: str, date_file: str | None = None) -> tuple[
+def prepare_data(
+    project: str, suffix: str, date_file: str | None = None, db: bool = False
+) -> tuple[
     dict[str, dict[str, dict[str, dict[str, str | int | list[str] | dict[str, str]]]]],
     dict[str, dict[str, dict[str, None | float | str | int | dict[str, str]]]],
 ]:
     data_conf: dict[
         str, dict[str, dict[str, dict[str, str | int | list[str] | dict[str, str]]]]
     ] = jiraconf()
-    now = datefile(date_file)
-    path_file = f"{data_conf['projects'][project]['path_data']}{now.replace('-', '')}{project}_{suffix}.json"
-    logging.info(f"file:///{path_file} {path_file}")
-    with open(path_file, "r", encoding="utf-8") as fp:
-        # dict de date de ticket avec update ou fields
-        datas_sm: dict[str, dict[str, dict[str, None | str | int | dict[str, str]]]] = (
-            json.load(fp)
-        )
+    if db:
+        from db.db_project import tickets
+
+        datas_sm = tickets(project=project)
+    else:
+        now = datefile(date_file)
+        path_file = f"{data_conf['projects'][project]['path_data']}{now.replace('-', '')}{project}_{suffix}.json"
+        logging.info(f"file:///{path_file} {path_file}")
+        with open(path_file, "r", encoding="utf-8") as fp:
+            # dict de date de ticket avec update ou fields
+            datas_sm: dict[
+                str, dict[str, dict[str, None | str | int | dict[str, str]]]
+            ] = json.load(fp)
     return data_conf, datas_sm
 
 
@@ -849,6 +856,7 @@ def time_nb(project: str, suffix: str = "", date_file: str | None = None):
     tickets = []
     dates_end = {}
     dates_l = list(datas_sm.keys())
+    index_status = list(datas_conf["projects"][project]["colors"].keys())
     for da in dates_l:
         if da <= now:
             for ticket, value in datas_sm[da].items():
@@ -863,6 +871,10 @@ def time_nb(project: str, suffix: str = "", date_file: str | None = None):
                             if (
                                 datas_sm[st_da][ticket]["status"] is not None
                                 and datas_sm[st_da][ticket]["status"] != ""
+                                and index_status.index(
+                                    datas_sm[st_da][ticket]["status"]
+                                )
+                                >= index_status.index("In Progress")
                             ):
                                 if da not in dates_end:
                                     dates_end[da] = {}
@@ -1001,10 +1013,23 @@ def analysis_tree(project: str, date_file: str | None = None):
     n: dict[str, dict[str, str | int | float]]
     data_conf, n, now = get_tree(project=project, date_file=date_file)
     epics: dict[str, dict[str, str | dict[str, dict[str, str | int | float]]]] = {}
+    lvl1_sprint = (
+        "type" in data_conf["projects"][project]["super"]
+        and data_conf["projects"][project]["super"]["type"] == "Sprint"
+    )
+
     for story, v in n.items():
+        if v["lvl"] == 1 and lvl1_sprint:
+            continue
         if v["lvl"] == 0:
-            father = v["father"] if "father" in v else "No Epics"
-            father_name = v["father.name"] if "father" in v else "No Epics"
+            if lvl1_sprint:
+                father = n[v["father"]]["father"]
+                v["father"] = father
+                father_name = n[v["father"]]["name"]
+                v["father.name"] = father_name
+            else:
+                father = v["father"] if "father" in v else "No Epics"
+                father_name = v["father.name"] if "father" in v else "No Epics"
         else:
             father = story
             father_name = v["name"]
@@ -1040,7 +1065,11 @@ def re_tree(project: str, start_date: str, filtre: str = "", suffix: str = ""):
 
 
 def burndown(
-    project: str, suffix: str = "", date_file: str | None = None, previous: bool = False
+    project: str,
+    suffix: str = "",
+    date_file: str | None = None,
+    previous: bool = False,
+    points: bool = True,
 ):
     data_conf = jiraconf()
     conf = data_conf["projects"][project]
@@ -1072,9 +1101,19 @@ def burndown(
         if dd <= now:
             sum = 0
             for ticket in datas_sm[dd].values():
-                if "timeestimate" in ticket and ticket["timeestimate"] is not None:
+                if points:
+                    if (
+                        ticket["estimate"] is not None
+                        and ticket["status"]
+                        and ticket["status"] not in conf["status_done"]
+                    ):
+                        sum += float(ticket["estimate"])
+                elif "timeestimate" in ticket and ticket["timeestimate"] is not None:
                     sum += int(ticket["timeestimate"])
-            sums.append(sum // 3600)
+            if points:
+                sums.append(sum)
+            else:
+                sums.append(sum // 3600)
     b = (
         Burndown(title=f"{project} {sprint}", start_is_max=True, indicators=False)
         .dates(["Start"] + [dd[5:7] + "/" + dd[8:10] for dd in d[1:]])

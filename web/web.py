@@ -18,6 +18,7 @@ from version_one.sprint import read as read_sprint
 from version_one.tree_version_one import treemap_pi_portfolio
 from version_one.program_increment import analyse_pi, features_pi
 from datetime import datetime
+from reports.sprint_run import sprint_run
 
 hostname = "localhost"
 serverPort = 8000
@@ -98,6 +99,7 @@ class MyServer(BaseHTTPRequestHandler):
             "TreemapEpic": None,
             "Anime": None,
             "time_nb": None,
+            "sprint_run": None,
         }
         self.wl('<form method="post" action="/action">')
         self.w("<fieldset><legend>Project</legend>")
@@ -189,6 +191,15 @@ class MyServer(BaseHTTPRequestHandler):
         self.w("<html><head><title>S@m Tools</title>")
         self.fav_icon()
 
+        self.wl(
+            "<style>"
+            "th, td {padding: 15px; min-height: 25px;} "
+            "tr:nth-child(even) {background-color: #f2f2f2;} "
+            "th:nth-child(even) {background-color: #f2f2f2;} "
+            "td:nth-child(even) {background-color: #f2f2f2;} "
+            "table, td, th { border: 1px solid;} table {width: 100%; border-collapse: collapse;} td {text-align: center;}"
+            "</style>"
+        )
         self.w("<script>")
         self.w("document.addEventListener('DOMContentLoaded', () => {")
         self.w(
@@ -256,6 +267,9 @@ class MyServer(BaseHTTPRequestHandler):
                     link_treemap += f"&filter={quote(filtre)}"
                     self.w(f'<a href="{link_treemap}"')
                 else:
+                    self.wl(
+                        f'<a href="{conf["url_server"]}secure/RapidBoard.jspa?projectKey={project}&rapidView={conf['board_id']}">{escape(conf['name'])} board</a>'
+                    )
                     self.w(f'<a href="/treemap?project={project}"')
                 self.wl(f' download="{project}_treemap.html">Treemap file</a>')
                 if actions in req:
@@ -322,6 +336,7 @@ class MyServer(BaseHTTPRequestHandler):
                                 j = jira_treemap(
                                     project=project, date_file=asof, html=False
                                 )
+                            self.wl(j.chart_html(full_html=False))
                         elif action == b"Anime":
                             if "type" in conf and conf["type"] == "version_one":
                                 # TODO anime version_one
@@ -337,10 +352,6 @@ class MyServer(BaseHTTPRequestHandler):
                                     date_file=asof,
                                     html=False,
                                 )
-                            self.wl(
-                                # j.chart_html().split("<body>")[-1].split("</body>")[0]
-                                j.chart_html(full_html=False)
-                            )
                         elif action == b"TreemapEpic":
                             for n, t, a in analysis_tree(project):
                                 self.w("<details><summary>" + n + str(a) + "</summary>")
@@ -365,8 +376,18 @@ class MyServer(BaseHTTPRequestHandler):
                             self.wl(j, append=True)
                         elif action == b"time_nb":
                             self.wl(time_nb(project))
+                        elif action == b"sprint_run":
+                            for sr in sprint_run(
+                                project=project,
+                                date=None,
+                                sprints=None,
+                                with_name=True,
+                                html=True,
+                                file=False,
+                            ):
+                                self.w(sr)
                         elif action == b"Burndown":
-                            self.wl(burndown(project, suffix="sprint"))
+                            self.wl(burndown(project, suffix="sprint", points=True))
                         elif action == b"Burndown_previous":
                             self.wl(
                                 burndown(
