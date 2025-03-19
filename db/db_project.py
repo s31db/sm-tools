@@ -73,6 +73,10 @@ def prepare(path: str, project: str):
         con.sql(f"Drop TABLE IF EXISTS {table}")
         req = f"CREATE TABLE IF NOT EXISTS {table} (typ string, day string, PRIMARY KEY (typ, day))"
         con.sql(req)
+
+        con.sql("Drop TABLE IF EXISTS days")
+        req = "CREATE TABLE IF NOT EXISTS days (day string primary key, id int);"
+        con.sql(req)
         pass
 
 
@@ -112,7 +116,7 @@ def jira(
 
     data_conf = jiraconf()
     d = add_dates(
-        date.fromisoformat(start_date),
+        date.fromisoformat(start_date[:10]),
         frm="%Y-%m-%d",
         limit_date=None,
         end_date=date.today(),
@@ -136,21 +140,35 @@ def insert_or_update(
             file=False,
         )
         con.sql(f"truncate {project}_tempo")
-        prepare_insert = f"VALUES ($values)"
-        for day, tickets in datas_sm.items():
-            for ticket, values in tickets.items():
+        prepare_insert = f"VALUES ({",".join(["?" for _ in range(len(fields)+2)])})"
+        for day, day_tickets in datas_sm.items():
+            for ticket, values in day_tickets.items():
                 vals = [day, ticket]
-                vals += [str(values[f]).replace("'", "''") for f in fields]
-                # FIXME prepare_statement
-                p = prepare_insert.replace("$values", f"'{"', '".join(vals)}'")
-                con.sql(f"INSERT INTO {project}_tempo {p} ON CONFLICT DO NOTHING")
+                prepare_values(fields, vals, values)
+                con.execute(
+                    f"INSERT INTO {project}_tempo {prepare_insert} ON CONFLICT DO NOTHING",
+                    vals,
+                )
         update_fields = [f'"{field}" = "{field}"' for field in fields]
-        con.sql(
+        con.execute(
             f"INSERT INTO {project} select * from {project}_tempo ON CONFLICT (day, ticket) DO UPDATE set {", ".join(update_fields)}"
         )
-        con.sql(
-            f"INSERT INTO {project}_suivi (typ, day) values ('ticket', '{date.today().strftime("%Y-%m-%d hh:mm:ss")}') ON CONFLICT DO NOTHING"
+        con.execute(
+            f"INSERT INTO {project}_suivi (typ, day) values ('ticket', ?) ON CONFLICT DO NOTHING",
+            [date.today().strftime("%Y-%m-%d")],
         )
+        con.sql('truncate "days"')
+        con.sql(
+            f'insert into "days" select "day", row_number() OVER () from (select "day" from {project} group by 1 order by 1)'
+        )
+
+
+def prepare_values(fields, vals, values):
+    for f in fields:
+        if f in values:
+            vals.append(values[f])
+        else:
+            vals.append(None)
 
 
 def prepare_conf(con, project, start_date, typ):
@@ -180,19 +198,19 @@ def epic(path: str, project: str, start_date: str | None = None, updated: bool =
             filtre=f"and updated >= '{start_date}'" if updated else "",
             now=date.today().strftime("%Y-%m-%d"),
         )
-        prepare_insert = f"VALUES ($values)"
+        prepare_insert = f"VALUES ({",".join(["?" for _ in range(len(fields) + 2)])})"
         update_fields = [f'"{field}" = "{field}"' for field in fields]
         for day, tickets in datas_sm.items():
             for ticket, values in tickets.items():
                 vals = [day, ticket]
-                vals += [str(values[f]).replace("'", "''") for f in fields]
-                # FIXME prepare_statement
-                p = prepare_insert.replace("$values", f"'{"', '".join(vals)}'")
-                con.sql(
-                    f"INSERT INTO {project}_epic {p} ON CONFLICT (day, ticket) DO UPDATE set {", ".join(update_fields)}"
+                prepare_values(fields, vals, values)
+                con.execute(
+                    f"INSERT INTO {project}_epic {prepare_insert} ON CONFLICT (day, ticket) DO UPDATE set {", ".join(update_fields)}",
+                    vals,
                 )
-        con.sql(
-            f"INSERT INTO {project}_suivi (typ, day) values ('epic', '{date.today().strftime("%Y-%m-%d hh:mm:ss")}') ON CONFLICT DO NOTHING"
+        con.execute(
+            f"INSERT INTO {project}_suivi (typ, day) values ('epic', ?) ON CONFLICT DO NOTHING",
+            [date.today().strftime("%Y-%m-%d")],
         )
 
 
@@ -205,21 +223,19 @@ def sprint(path: str, project: str, start_date: str | None = None):
         )
         datas_sm = jirasm.sprints(asof=None, file=False)
 
-        prepare_insert = f"VALUES ($values)"
+        prepare_insert = f"VALUES ({",".join(["?" for _ in range(len(fields) + 1)])})"
         update_fields = [f'"{field}" = "{field}"' for field in fields]
         for ticket, values in datas_sm.items():
-            vals = [
-                str(values[f]).replace("'", "''") if f in values else "" for f in fields
-            ]
-            # FIXME prepare_statement
-            p = prepare_insert.replace("$values", f"{ticket}, '{"', '".join(vals)}'")
-            con.sql(
-                f"INSERT INTO {project}_sprint {p} ON CONFLICT (sprint) DO UPDATE set {", ".join(update_fields)}"
+            vals = [str(ticket)]
+            prepare_values(fields, vals, values)
+            con.execute(
+                f"INSERT INTO {project}_sprint {prepare_insert} ON CONFLICT (sprint) DO UPDATE set {", ".join(update_fields)}",
+                vals,
             )
-        con.sql(
-            f"INSERT INTO {project}_suivi (typ, day) values ('sprint', '{date.today().strftime("%Y-%m-%d hh:mm:ss")}') ON CONFLICT DO NOTHING"
+        con.execute(
+            f"INSERT INTO {project}_suivi (typ, day) values ('sprint', ?) ON CONFLICT DO NOTHING",
+            [date.today().strftime("%Y-%m-%d")],
         )
-        con.table(f"{project}_sprint").show()
 
 
 def new_project(project: str):
@@ -306,6 +322,55 @@ def tickets(project: str):
             }
             t[day_ticket[0]][day_ticket[1]]["super.type"] = "Sprint"
     return t
+
+
+def execute(project: str, query: str, parameters):
+    data_conf = jiraconf()["projects"][project]
+    db_path = data_conf["path_data"] + project + ".db"
+    with duckdb.connect(db_path) as con:
+        con.execute(query, parameters)
+
+
+def analyse_estimate(project: str):
+    sql = (
+        "select assignee, estimate, quantile_cont(lead_time, 0.7), avg(lead_time) as avg_lead_time, min(lead_time) "
+        "as min_lead_time, max(lead_time) as max_lead_time, avg(cycle_time) as avg_cycle_time, count(1) as nb from ("
+        'select assignee, estimate, (select id from "days" where "day" = done) - (select id from "days" '
+        'where "day" = created) as lead_time, (select id from "days" '
+        'where "day" = done) - (select id from "days" where "day" = start_date) as cycle_time from ('
+        f'select assignee, estimate, created[0:10] created, (select "day" from {project} B where a.ticket = b.ticket and '
+        "b.status in ('All Status after start')"
+        f' order by b."day" limit 1) as start_date, (select "day" from {project} B where a.ticket = b.ticket and '
+        "b.status in ('All Status ending') order by b.\"day\" limit 1) as done, "
+        f"from {project} a where \"day\" = '2025-03-14' and "
+        "status in ('All Status ending'))) group by 1,2 order by 1,2 desc;"
+    )
+    data_conf = jiraconf()["projects"][project]
+    db_path = data_conf["path_data"] + project + ".db"
+    with duckdb.connect(db_path) as con:
+        con.sql(sql).show(max_width=500000, null_value="", max_rows=10000)
+
+
+def sprints(project: str):
+    data_conf = jiraconf()["projects"][project]
+    db_path = data_conf["path_data"] + project + ".db"
+    d = []
+    with duckdb.connect(db_path) as con:
+        datas_sprint = (
+            con.table(f"{project}_sprint")
+            .filter(f"state in ('closed', 'active')")
+            .select("name", "start_date", "end_date")
+            .order("start_date desc")
+        )
+        for s in datas_sprint.fetchall():
+            d.append(
+                {
+                    "name": s[0],
+                    "start_date": s[1],
+                    "end_date": s[2],
+                }
+            )
+        return d
 
 
 if __name__ == "__main__":

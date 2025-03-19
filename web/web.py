@@ -19,6 +19,7 @@ from version_one.tree_version_one import treemap_pi_portfolio
 from version_one.program_increment import analyse_pi, features_pi
 from datetime import datetime
 from reports.sprint_run import sprint_run
+from db.db_project import update_project, sprints
 
 hostname = "localhost"
 serverPort = 8000
@@ -40,6 +41,10 @@ class MyServer(BaseHTTPRequestHandler):
                 else None
             )
             conf = jiraconf()["projects"][project]
+            db = (
+                "db" in jiraconf()["projects"][project]
+                and jiraconf()["projects"][project]["db"]
+            )
             if "type" in conf and conf["type"] == "version_one":
                 append_filters = [self.path.split("filter=")[1]]
                 if asof:
@@ -57,7 +62,10 @@ class MyServer(BaseHTTPRequestHandler):
                 )[0]
             else:
                 j = jira_treemap(
-                    project=self.path.split("project=")[1], date_file=asof, html=False
+                    project=self.path.split("project=")[1],
+                    date_file=asof,
+                    html=False,
+                    db=db,
                 )
             self.w(j.chart_html())
         else:
@@ -272,6 +280,7 @@ class MyServer(BaseHTTPRequestHandler):
                     )
                     self.w(f'<a href="/treemap?project={project}"')
                 self.wl(f' download="{project}_treemap.html">Treemap file</a>')
+                db = conf["db"] if "db" in conf else False
                 if actions in req:
                     for action in req[actions]:
                         if action == b"Extract":
@@ -290,12 +299,15 @@ class MyServer(BaseHTTPRequestHandler):
                                     now=now,
                                 )
                             else:
-                                extract_jira(
-                                    project=project,
-                                    start_date=start,
-                                    filtre=filtre,
-                                    asof=asof,
-                                )
+                                if db:
+                                    update_project(project=project)
+                                else:
+                                    extract_jira(
+                                        project=project,
+                                        start_date=start,
+                                        filtre=filtre,
+                                        asof=asof,
+                                    )
                         elif action == b"Cumulative":
                             if "type" in conf and conf["type"] == "version_one":
                                 j = read_sprint(
@@ -319,6 +331,7 @@ class MyServer(BaseHTTPRequestHandler):
                                     step=step,
                                     chart_html=True,
                                     now=now,
+                                    db=db,
                                 )
                             self.wl(j, append=True)
                         elif action == b"Treemap":
@@ -334,7 +347,7 @@ class MyServer(BaseHTTPRequestHandler):
                                 )[0]
                             else:
                                 j = jira_treemap(
-                                    project=project, date_file=asof, html=False
+                                    project=project, date_file=asof, html=False, db=db
                                 )
                             self.wl(j.chart_html(full_html=False))
                         elif action == b"Anime":
@@ -380,10 +393,12 @@ class MyServer(BaseHTTPRequestHandler):
                             for sr in sprint_run(
                                 project=project,
                                 date=None,
-                                sprints=None,
+                                # sprints=None, # sprint actif
+                                sprints=sprints(project=project), # all sprint
                                 with_name=True,
                                 html=True,
                                 file=False,
+                                db=db,
                             ):
                                 self.w(sr)
                         elif action == b"Burndown":

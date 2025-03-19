@@ -167,7 +167,10 @@ def by_sprint_html(
     for k, s in ticket_sprint.items():
         link = f"<a href='{url_server}browse/{k}'>{k}</a>"
         if with_name:
-            yield f"<tr><td>{link} {s["name"]}</td>"
+            yield f"<tr><td>{link} {s["name"]}"
+            if "assignee" in s and s["assignee"]:
+                yield f" - {s["assignee"].split("@")[0]}"
+            yield "</td>"
         else:
             yield f"<tr><td>{link}</td>"
         n = 1
@@ -252,12 +255,15 @@ def calcul_tickets_sprint(data, html, name_sprint, sds, with_name):
                         if html:
                             ticket_sprint[id] = {
                                 sd: status,
-                                "name": ticket["name"],
+                                # "name": ticket["name"],
                                 "estimate": {sd: ticket["estimate"]},
                             }
                             last_estimate = ticket["estimate"]
                         else:
                             ticket_sprint[id] = [(status, sd)]
+                    if "assignee" in ticket:
+                        ticket_sprint[id]["assignee"] = ticket["assignee"]
+                    ticket_sprint[id]["name"] = ticket["name"]
                     ticket_sprint_last[id] = status
     return ticket_sprint
 

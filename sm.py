@@ -26,10 +26,11 @@ def jira_cum(
     start_date: str = "2023-01-09",
     weeks: int = 15,
     now: bool = False,
+    db: bool = False,
 ):
     d = dates(start_date=start_date, weeks=weeks, now=now)
     data_conf, datas_sm = prepare_data(
-        project=project, suffix=suffix, date_file=date_file
+        project=project, suffix=suffix, date_file=date_file, db=db
     )
     i = 0
     filter_dates: list[str] = []
@@ -57,9 +58,10 @@ def jira_treemap(
     show: bool = False,
     asof: str | None = None,
     fake: bool = False,
+    db: bool = False,
 ):
     data_conf, n, now = get_tree(
-        project=project, suffix=suffix, date_file=date_file, asof=asof
+        project=project, suffix=suffix, date_file=date_file, asof=asof, db=db
     )
     t = Treemap(
         project + " " + now,
@@ -106,6 +108,7 @@ def get_tree(
     suffix: str = "",
     date_file: str | None = None,
     asof: str | None = None,
+    db: bool = False,
 ) -> tuple[
     dict[str, dict[str, dict[str, str | list[str] | int | float]]],
     dict[str, str | dict[str, dict[str, str | int | float]]],
@@ -113,9 +116,7 @@ def get_tree(
 ]:
     now = datefile(asof if asof else date_file)
     data_conf, datas_sm = prepare_data(
-        project=project,
-        suffix=suffix,
-        date_file=date_file,
+        project=project, suffix=suffix, date_file=date_file, db=db
     )
     n = tree.build_tree(datas_sm[now])[1]
     return data_conf, n, now
