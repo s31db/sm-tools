@@ -164,6 +164,7 @@ def by_sprint_html(
     for sd in sds:
         yield f"<th>{sd}</th>"
     yield "</tr>"
+    last_date = datetime.today().strftime("%Y-%m-%d")
     for k, s in ticket_sprint.items():
         link = f"<a href='{url_server}browse/{k}'>{k}</a>"
         if with_name:
@@ -176,7 +177,7 @@ def by_sprint_html(
         n = 1
         status = None
         for sd in sds:
-            if sd <= datetime.today().strftime("%Y-%m-%d"):
+            if sd <= last_date:
                 if sd in s:
                     if status:
                         yield f"<td colspan={n} style='background-color: {colors[status]}'>{status} {r(s["estimate"][sd])}</td>"
@@ -190,7 +191,7 @@ def by_sprint_html(
                         yield f"<td id='{k}_{sd}'></td>"
         yield f"<td colspan={n} style='background-color: {colors[status]}'>{status} {r(s["estimate"][last_sd])}</td>"
         for sd in sds:
-            if sd > datetime.today().strftime("%Y-%m-%d"):
+            if sd > last_date:
                 yield "<td style='background-color: white'/>"
         yield "</tr>"
     yield "</table>"

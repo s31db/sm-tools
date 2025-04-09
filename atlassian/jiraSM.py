@@ -86,7 +86,9 @@ def add_super(
             ]["name"]
 
         us_date[date][ticket.key][SUPER_SUPER] = super_super_id
-    if ticket_super is None:
+    if ticket_super is None or (
+        "type" in _super and _super["type"] == "Sprint" and not ticket_super
+    ):
         if SUPER in _super:
             us_date[date][ticket.key][SUPER] = "-1" + "_" + super_super_id
         else:
@@ -96,18 +98,21 @@ def add_super(
         us_date[date][ticket.key]["super.type"] = ""
     else:
         if "type" in _super and _super["type"] == "Sprint":
-            us_date[date][ticket.key][SUPER] = (
-                ticket_super[-1].split("[id=")[-1].split(",rapidViewId=")[0]
-                + "_"
-                + super_super_id
-            )
-            us_date[date][ticket.key][SUPER_NAME] = (
-                ticket_super[-1].split(",name=")[-1].split(",startDate=")[0]
-            )
-            us_date[date][ticket.key][SUPER_STATUS] = (
-                ticket_super[-1].split(",state=")[-1].split(",name=")[0]
-            )
-            us_date[date][ticket.key]["super.type"] = "Sprint"
+            try:
+                us_date[date][ticket.key][SUPER] = (
+                    ticket_super[-1].split("[id=")[-1].split(",rapidViewId=")[0]
+                    + "_"
+                    + super_super_id
+                )
+                us_date[date][ticket.key][SUPER_NAME] = (
+                    ticket_super[-1].split(",name=")[-1].split(",startDate=")[0]
+                )
+                us_date[date][ticket.key][SUPER_STATUS] = (
+                    ticket_super[-1].split(",state=")[-1].split(",name=")[0]
+                )
+                us_date[date][ticket.key]["super.type"] = "Sprint"
+            except IndexError as ie:
+                logging.error(ie)
         else:
             us_date[date][ticket.key][SUPER] = ticket_super
             if ticket_super in epics_date[date]:
@@ -696,22 +701,16 @@ class JiraSM:
                         if changelog_item.field == "summary"
                         else tickets_changelogs[changelog_item.field]
                     )
-                    for date in dates:
-                        if asof and asof > date:
-                            break
-                        else:
-                            if (
-                                created
-                                <= date
-                                < changelog_date
-                                < us_date[date][ticket.key]["update"][field]
-                            ):
-                                us_date[date][ticket.key][
-                                    field
-                                ] = changelog_item.fromString
-                                us_date[date][ticket.key]["update"][
-                                    field
-                                ] = changelog_date
+                    self._field_changelog(
+                        asof,
+                        changelog_date,
+                        changelog_item.fromString,
+                        created,
+                        dates,
+                        field,
+                        ticket.key,
+                        us_date,
+                    )
                 if changelog_item.field in (self._super["field_changelog"],):
                     field_change_treated = True
                     change_super(
@@ -750,6 +749,30 @@ class JiraSM:
                         )
                     )
                     # changelog_item.fromString, changelog_item.to, changelog_item.toString
+
+    def _field_changelog(
+        self,
+        asof,
+        changelog_date,
+        changelog_item_fromString,
+        created,
+        dates,
+        field,
+        ticket_key,
+        us_date,
+    ):
+        for date in dates:
+            if asof and asof > date:
+                break
+            else:
+                if created <= date < changelog_date and (
+                    changelog_date < us_date[date][ticket_key]["update"][field]
+                    or changelog_date
+                    <= us_date[date][ticket_key]["update"][field]
+                    == dates[-1]
+                ):
+                    us_date[date][ticket_key][field] = changelog_item_fromString
+                    us_date[date][ticket_key]["update"][field] = changelog_date
 
     def _prepare_epics(
         self, dates, epics_changelogs, epics_date: dict, epics_fields, now
@@ -878,27 +901,25 @@ class JiraSM:
                 tickets_fields.append(value["field"].split(".")[0])
         return epics_changelogs, epics_fields, tickets_changelogs, tickets_fields
 
-    def sprints(self, file: bool = True, asof: str | None = None):
+    def sprints(self, file: bool = True, asof: str | None = None, max_results: int = 0):
         s = {}
-        for sprint in self._jira.sprints(self._board_id):
+        for sprint in self._jira.sprints(self._board_id, maxResults=max_results):
             if sprint.state == "future":
                 s[sprint.id] = {
                     "name": sprint.name,
                     "state": sprint.state,
                 }
-                try:
-                    s[sprint.id]["goal"] = sprint.goal
-                except AttributeError:
-                    pass
             else:
-                # s[sprint.id] = {'start_date': sprint.activatedDate[:10], 'end_date': sprint.completeDate[:10],
                 s[sprint.id] = {
                     "start_date": sprint.activatedDate[:10],
                     "end_date": sprint.endDate[:10],
                     "name": sprint.name,
                     "state": sprint.state,
-                    "goal": sprint.goal,
                 }
+            try:
+                s[sprint.id]["goal"] = sprint.goal
+            except AttributeError:
+                pass
         if asof:
             now = asof
         else:
@@ -994,3 +1015,127 @@ class JiraSM:
             created = ticket.fields.created[:10]
             ticket_super = attrgetter("parent")(ticket.fields)
             print(created, ticket_super)
+
+
+def test_field_changelog():
+    jira = JiraSM()
+    dates = [
+        "2025-03-22",
+        "2025-03-23",
+        "2025-03-24",
+        "2025-03-25",
+        "2025-03-26",
+        "2025-03-27",
+    ]
+    us_date = {}
+    for date in dates:
+        us_date[date] = {
+            "1": {"update": {"status": dates[-1]}, "status": "status_date"}
+        }
+    jira._field_changelog(
+        asof=None,
+        changelog_date="2025-03-25",
+        changelog_item_fromString="val_2025-03-25_bis",
+        created="2024-05-11",
+        dates=dates,
+        field="status",
+        ticket_key="1",
+        us_date=us_date,
+    )
+    assert us_date == {
+        "2025-03-22": {
+            "1": {"update": {"status": "2025-03-25"}, "status": "val_2025-03-25_bis"}
+        },
+        "2025-03-23": {
+            "1": {"update": {"status": "2025-03-25"}, "status": "val_2025-03-25_bis"}
+        },
+        "2025-03-24": {
+            "1": {"update": {"status": "2025-03-25"}, "status": "val_2025-03-25_bis"}
+        },
+        "2025-03-25": {
+            "1": {"update": {"status": "2025-03-27"}, "status": "status_date"}
+        },
+        "2025-03-26": {
+            "1": {"update": {"status": "2025-03-27"}, "status": "status_date"}
+        },
+        "2025-03-27": {
+            "1": {"update": {"status": "2025-03-27"}, "status": "status_date"}
+        },
+    }
+    second_change(dates, jira, us_date)
+    third_change(dates, jira, us_date)
+
+
+def second_change(dates, jira, us_date):
+    jira._field_changelog(
+        asof=None,
+        changelog_date="2025-03-25",
+        changelog_item_fromString="val_2025-03-25",
+        created="2024-05-11",
+        dates=dates,
+        field="status",
+        ticket_key="1",
+        us_date=us_date,
+    )
+    assert us_date == {
+        "2025-03-22": {
+            "1": {"update": {"status": "2025-03-25"}, "status": "val_2025-03-25_bis"}
+        },
+        "2025-03-23": {
+            "1": {"update": {"status": "2025-03-25"}, "status": "val_2025-03-25_bis"}
+        },
+        "2025-03-24": {
+            "1": {"update": {"status": "2025-03-25"}, "status": "val_2025-03-25_bis"}
+        },
+        "2025-03-25": {
+            "1": {"update": {"status": "2025-03-27"}, "status": "status_date"}
+        },
+        "2025-03-26": {
+            "1": {"update": {"status": "2025-03-27"}, "status": "status_date"}
+        },
+        "2025-03-27": {
+            "1": {"update": {"status": "2025-03-27"}, "status": "status_date"}
+        },
+    }
+
+
+def third_change(dates, jira, us_date):
+    jira._field_changelog(
+        asof=None,
+        changelog_date="2025-03-27",
+        changelog_item_fromString="val_2025-03-27",
+        created="2024-05-11",
+        dates=dates,
+        field="status",
+        ticket_key="1",
+        us_date=us_date,
+    )
+    assert us_date == {
+        "2025-03-22": {
+            "1": {
+                "update": {"status": "2025-03-25"},
+                "status": "val_2025-03-25_bis",
+            }
+        },
+        "2025-03-23": {
+            "1": {
+                "update": {"status": "2025-03-25"},
+                "status": "val_2025-03-25_bis",
+            }
+        },
+        "2025-03-24": {
+            "1": {
+                "update": {"status": "2025-03-25"},
+                "status": "val_2025-03-25_bis",
+            }
+        },
+        "2025-03-25": {
+            "1": {"update": {"status": "2025-03-27"}, "status": "val_2025-03-27"}
+        },
+        "2025-03-26": {
+            "1": {"update": {"status": "2025-03-27"}, "status": "val_2025-03-27"}
+        },
+        "2025-03-27": {
+            "1": {"update": {"status": "2025-03-27"}, "status": "status_date"}
+        },
+    }

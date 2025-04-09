@@ -394,7 +394,9 @@ class MyServer(BaseHTTPRequestHandler):
                                 project=project,
                                 date=None,
                                 # sprints=None, # sprint actif
-                                sprints=sprints(project=project), # all sprint
+                                sprints=(
+                                    sprints(project=project) if db else None
+                                ),  # all sprint
                                 with_name=True,
                                 html=True,
                                 file=False,

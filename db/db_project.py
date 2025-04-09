@@ -126,16 +126,21 @@ def jira(
 
 
 def insert_or_update(
-    path: str, project: str, start_date: str | None = None, updated: bool = False
+    path: str,
+    project: str,
+    start_date: str | None = None,
+    updated: bool = False,
+    filtre: str = "",
 ):
     fields = project_fields(project)
     with duckdb.connect(path) as con:
         data_conf, d, jirasm, start_date = prepare_conf(
             con=con, project=project, start_date=start_date, typ="ticket"
         )
+        days = list(d)
         datas_sm, file = jirasm.epic_ticket(
-            list(d),
-            filtre=f"and updated >= '{start_date}'" if updated else "",
+            days,
+            filtre=f"{filtre} " + (f"and updated >= '{start_date}'" if updated else ""),
             asof=None,
             file=False,
         )
@@ -149,7 +154,15 @@ def insert_or_update(
                     f"INSERT INTO {project}_tempo {prepare_insert} ON CONFLICT DO NOTHING",
                     vals,
                 )
-        update_fields = [f'"{field}" = "{field}"' for field in fields]
+        if updated:
+            for day in days:
+                con.execute(
+                    f"INSERT INTO {project}_tempo select ?, ticket,"
+                    f"{", ".join([f'"{field}"' for field in fields if field != "day"])} "
+                    f'from {project} where "day" = (select max("day") from {project}) ON CONFLICT DO NOTHING',
+                    [day],
+                )
+        update_fields = [f'"{field}" = EXCLUDED."{field}"' for field in fields]
         con.execute(
             f"INSERT INTO {project} select * from {project}_tempo ON CONFLICT (day, ticket) DO UPDATE set {", ".join(update_fields)}"
         )
@@ -193,13 +206,24 @@ def epic(path: str, project: str, start_date: str | None = None, updated: bool =
         data_conf, d, jirasm, start_date = prepare_conf(
             con=con, project=project, start_date=start_date, typ="epic"
         )
+        days = list(d)
         datas_sm = jirasm.epics(
-            dates=list(d),
+            dates=days,
             filtre=f"and updated >= '{start_date}'" if updated else "",
             now=date.today().strftime("%Y-%m-%d"),
         )
         prepare_insert = f"VALUES ({",".join(["?" for _ in range(len(fields) + 2)])})"
-        update_fields = [f'"{field}" = "{field}"' for field in fields]
+        update_fields = [f'"{field}" = EXCLUDED."{field}"' for field in fields]
+
+        if updated:
+            last_date = con.table(f"{project}_epic").max("day").fetchone()[0]
+            for day in days:
+                con.execute(
+                    f"INSERT INTO {project}_epic select ?, ticket,"
+                    f"{", ".join([f'"{field}"' for field in fields if field != "day"])} "
+                    f'from {project}_epic where "day" = ? ON CONFLICT DO NOTHING',
+                    [day, last_date],
+                )
         for day, tickets in datas_sm.items():
             for ticket, values in tickets.items():
                 vals = [day, ticket]
@@ -224,7 +248,7 @@ def sprint(path: str, project: str, start_date: str | None = None):
         datas_sm = jirasm.sprints(asof=None, file=False)
 
         prepare_insert = f"VALUES ({",".join(["?" for _ in range(len(fields) + 1)])})"
-        update_fields = [f'"{field}" = "{field}"' for field in fields]
+        update_fields = [f'"{field}" = EXCLUDED."{field}"' for field in fields]
         for ticket, values in datas_sm.items():
             vals = [str(ticket)]
             prepare_values(fields, vals, values)
@@ -238,7 +262,7 @@ def sprint(path: str, project: str, start_date: str | None = None):
         )
 
 
-def new_project(project: str):
+def new_project(project: str, filtre: str = ""):
     data_conf = jiraconf()["projects"][project]
     start_date = data_conf["start"]
     print(start_date)
@@ -246,19 +270,29 @@ def new_project(project: str):
 
     prepare(path=db_path, project=project)
     insert_or_update(
-        path=db_path, project=project, start_date=start_date, updated=False
+        path=db_path,
+        project=project,
+        start_date=start_date,
+        updated=False,
+        filtre=filtre,
     )
     sprint(path=db_path, project=project, start_date=start_date)
     epic(path=db_path, project=project, start_date=start_date, updated=False)
     # verify(path=db_path, table_name=project)
 
 
-def update_project(project: str):
+def update_project(project: str, start_date: str | None = None, filtre: str = ""):
     data_conf = jiraconf()["projects"][project]
     db_path = data_conf["path_data"] + project + ".db"
-    insert_or_update(path=db_path, project=project)
+    insert_or_update(
+        path=db_path,
+        project=project,
+        updated=True,
+        start_date=start_date,
+        filtre=filtre,
+    )
     sprint(path=db_path, project=project)
-    epic(path=db_path, project=project, updated=True)
+    epic(path=db_path, project=project, updated=True, start_date=start_date)
     # verify(path=db_path, table_name=project)
 
 
@@ -304,7 +338,9 @@ def tickets(project: str):
     db_path = data_conf["path_data"] + project + ".db"
     t = {}
     with duckdb.connect(db_path) as con:
-        result = con.sql(f"select * from {project}")
+        result = con.sql(
+            f"select * from {project} where status is null or status <> 'Canceled'"
+        )
         columns = result.columns[2:]
         for day_ticket in result.fetchall():
             # print(day_ticket)
@@ -331,10 +367,10 @@ def execute(project: str, query: str, parameters):
         con.execute(query, parameters)
 
 
-def analyse_estimate(project: str):
+def analyse_estimate(project: str, day: str):
     sql = (
         "select assignee, estimate, quantile_cont(lead_time, 0.7), avg(lead_time) as avg_lead_time, min(lead_time) "
-        "as min_lead_time, max(lead_time) as max_lead_time, avg(cycle_time) as avg_cycle_time, count(1) as nb from ("
+        "as min_lead_time, max(lead_time) as max_lead_time, quantile_cont(cycle_time, 0.7), avg(cycle_time) as avg_cycle_time, count(1) as nb from ("
         'select assignee, estimate, (select id from "days" where "day" = done) - (select id from "days" '
         'where "day" = created) as lead_time, (select id from "days" '
         'where "day" = done) - (select id from "days" where "day" = start_date) as cycle_time from ('
@@ -348,7 +384,7 @@ def analyse_estimate(project: str):
     data_conf = jiraconf()["projects"][project]
     db_path = data_conf["path_data"] + project + ".db"
     with duckdb.connect(db_path) as con:
-        con.sql(sql).show(max_width=500000, null_value="", max_rows=10000)
+        con.sql(sql, params=[day]).show(max_width=500000, null_value="", max_rows=10000)
 
 
 def sprints(project: str):

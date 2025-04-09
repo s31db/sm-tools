@@ -9,6 +9,9 @@ class Barcompare(Chart):
     _width_bar: float = 0.3  # the width of the bars
     _ylabel: str = "Score"
     _rotation: float | None = None
+    _colors: dict[str, str] = {}
+    _legend: bool = True
+    _figsize: tuple[float, float] | None = None
 
     def nodes(self, nodes: dict[str, dict[str, float]]) -> Self:
         self._nodes = nodes
@@ -23,7 +26,7 @@ class Barcompare(Chart):
         return self
 
     def build(self) -> Self:
-        fig, ax = plt.subplots()
+        fig, ax = plt.subplots(figsize=self._figsize)
         values: dict[str, list[float]] = {}
         for node in self._nodes.values():
             for label, v in node.items():
@@ -47,7 +50,8 @@ class Barcompare(Chart):
         ax.set_xticks(x, self._nodes.keys())
         if self._rotation:
             plt.xticks(rotation=self._rotation, ha="right")
-        ax.legend()
+        if self._legend:
+            ax.legend()
         fig.tight_layout()
         return self
 
