@@ -1,4 +1,6 @@
 import duckdb
+from duckdb.duckdb import DuckDBPyConnection
+
 from sm import jiraconf
 from helpers.prepare_date_sprint import add_dates
 from atlassian.jiraSM import JiraSM
@@ -49,13 +51,22 @@ def epic_fields(project: str) -> list[str]:
     return fields
 
 
+def create_tempo(con: DuckDBPyConnection, dir_path: str, project: str):
+    con.sql(f"SET temp_directory = ?", params=[dir_path])
+    table = project + "_tempo"
+    con.sql(f"Drop TABLE IF EXISTS {table}")
+    req = f'CREATE TEMP TABLE IF NOT EXISTS {table} (day string, ticket string, "{'" string, "'.join(project_fields(project=project))}" string, PRIMARY KEY (day, ticket))'
+    req = req.replace('"estimate" string', '"estimate" float')
+    con.sql(req)
+
+
 def prepare(path: str, project: str):
     with duckdb.connect(path) as con:
-        for table in (project, project + "_tempo"):
-            con.sql(f"Drop TABLE IF EXISTS {table}")
-            req = f'CREATE TABLE IF NOT EXISTS {table} (day string, ticket string, "{'" string, "'.join(project_fields(project=project))}" string, PRIMARY KEY (day, ticket))'
-            req = req.replace('"estimate" string', '"estimate" float')
-            con.sql(req)
+        table = project
+        con.sql(f"Drop TABLE IF EXISTS {table}")
+        req = f'CREATE TABLE IF NOT EXISTS {table} (day string, ticket string, "{'" string, "'.join(project_fields(project=project))}" string, PRIMARY KEY (day, ticket))'
+        req = req.replace('"estimate" string', '"estimate" float')
+        con.sql(req)
         # con.table(project).show()
 
         table = project + "_epic"
@@ -109,6 +120,15 @@ def verify(path: str, table_name: str):
         print(con.table(table_name).count("day").fetchdf())
 
 
+def validate_project_data(project: str, table_name: str):
+    data_conf = jiraconf()["projects"][project]
+    db_path = data_conf["path_data"] + project + ".db"
+    with duckdb.connect(db_path) as con:
+        con.table(table_name).order("day, ticket").show()
+        print(con.table(table_name).count("day").fetchdf())
+        # TODO check consistency
+
+
 def jira(
     project: str,
     start_date: str,
@@ -137,6 +157,11 @@ def insert_or_update(
         data_conf, d, jirasm, start_date = prepare_conf(
             con=con, project=project, start_date=start_date, typ="ticket"
         )
+        create_tempo(
+            con=con,
+            dir_path=data_conf["projects"][project]["path_data"],
+            project=project,
+        )
         days = list(d)
         datas_sm, file = jirasm.epic_ticket(
             days,
@@ -144,7 +169,6 @@ def insert_or_update(
             asof=None,
             file=False,
         )
-        con.sql(f"truncate {project}_tempo")
         prepare_insert = f"VALUES ({",".join(["?" for _ in range(len(fields)+2)])})"
         for day, day_tickets in datas_sm.items():
             for ticket, values in day_tickets.items():
@@ -159,7 +183,7 @@ def insert_or_update(
                 con.execute(
                     f"INSERT INTO {project}_tempo select ?, ticket,"
                     f"{", ".join([f'"{field}"' for field in fields if field != "day"])} "
-                    f'from {project} where "day" = (select max("day") from {project}) ON CONFLICT DO NOTHING',
+                    f'from {project} where "day" = (select max("day") from {project})  and created[0:10] < "day" ON CONFLICT DO NOTHING',
                     [day],
                 )
         update_fields = [f'"{field}" = EXCLUDED."{field}"' for field in fields]
@@ -195,7 +219,7 @@ def prepare_conf(con, project, start_date, typ):
     if start_date is None:
         start_date = f'{(date.today() - timedelta(weeks=2 * 52)).strftime("%Y-%m-%d")}'
     data_conf, d, jirasm = jira(project=project, start_date=start_date)
-    print(typ, start_date)
+    print(project, typ, start_date)
     return data_conf, d, jirasm, start_date
 
 
@@ -221,7 +245,7 @@ def epic(path: str, project: str, start_date: str | None = None, updated: bool =
                 con.execute(
                     f"INSERT INTO {project}_epic select ?, ticket,"
                     f"{", ".join([f'"{field}"' for field in fields if field != "day"])} "
-                    f'from {project}_epic where "day" = ? ON CONFLICT DO NOTHING',
+                    f'from {project}_epic where "day" = ? and created[0:10] < "day" ON CONFLICT DO NOTHING',
                     [day, last_date],
                 )
         for day, tickets in datas_sm.items():
@@ -265,7 +289,7 @@ def sprint(path: str, project: str, start_date: str | None = None):
 def new_project(project: str, filtre: str = ""):
     data_conf = jiraconf()["projects"][project]
     start_date = data_conf["start"]
-    print(start_date)
+    print(project, start_date)
     db_path = data_conf["path_data"] + project + ".db"
 
     prepare(path=db_path, project=project)
@@ -300,6 +324,7 @@ def verify_project(project: str):
     data_conf = jiraconf()["projects"][project]
     db_path = data_conf["path_data"] + project + ".db"
     # print(db_path)
+    print(project)
     with duckdb.connect(db_path) as con:
         print("Ticket")
         con.table(project).order("day, ticket").show()
@@ -360,11 +385,27 @@ def tickets(project: str):
     return t
 
 
-def execute(project: str, query: str, parameters):
+def execute(project: str, query: str, parameters=None):
     data_conf = jiraconf()["projects"][project]
     db_path = data_conf["path_data"] + project + ".db"
     with duckdb.connect(db_path) as con:
-        con.execute(query, parameters)
+        res = con.execute(query, parameters)
+        print(res.fetchdf())
+
+
+def re_update(projects: list[str], start_date: str):
+    for project in projects:
+        execute(
+            project=project,
+            query=f'delete from {project}_epic where "day" >= ?',
+            parameters=[start_date],
+        )
+        execute(
+            project=project,
+            query=f'delete from {project} where "day" >= ?',
+            parameters=[start_date],
+        )
+        update_project(project, start_date=start_date)
 
 
 def analyse_estimate(project: str, day: str):
@@ -407,6 +448,52 @@ def sprints(project: str):
                 }
             )
         return d
+
+
+def cycle_time(project, day):
+    data_conf = jiraconf()["projects"][project]
+    db_path = data_conf["path_data"] + project + ".db"
+    # strftime(done, '%Y-%m') by_month
+    # done - created as lead_time
+    sql_data = (
+        "select year(done) year_done, quarter(done) quarter_done, "
+        f'(select estimate from {project} c where c.ticket=i.ticket and c."day" = start_date) estimate, '
+        # "estimate, "
+        "done - start_date as cycle_time, ticket "
+        "from (select  estimate, CAST(created as DATE) created, ticket, "
+        f'CAST((select "day" from {project} B where a.ticket = b.ticket and b.status in ('
+        "'All Status after start') "
+        f'order by b."day" limit 1) as DATE) as start_date, '
+        f'CAST((select "day" from {project} B where a.ticket = b.ticket and b.status in ('
+        "'All Status ending') "
+        'order by b."day" limit 1) as DATE) as done '
+        f'from {project} a where "day" = ? and '
+        f"a.status != 'Canceled' and status in ('All Status ending') and \"super.name\" != 'Backlog') as i"
+    )
+    sql = (
+        "select "
+        "year_done, quarter_done, estimate, min(cycle_time) as min_cycle_time, avg(cycle_time) as avg_cycle_time, "
+        f"quantile_cont(cycle_time, 0.7), max(cycle_time) as max_cycle_time, count(1) as nb from ({sql_data}) "
+        f"where estimate is not null group by 1,2,3 having count(1) > 3 order by 3 desc, 1, 2;"
+    )
+    from charts.barcompare import Barcompare
+
+    d = {}
+    with duckdb.connect(db_path) as con:
+        for s in con.sql(sql, params=[day]).fetchall():
+            estimate = 0 if s[2] is None else s[2]
+            key = f"{str(s[0])[2:]}-{s[1]}#{estimate}"
+            d[key] = {
+                # "min_cycle_time": s[3],
+                "avg_cycle_time": s[4],
+                "70 per centile": s[5],
+                # "max_cycle_time": s[6],
+                "nb": s[7],
+            }
+    print(d)
+    Barcompare(f"Cycle times {project}", figsize=(16, 5)).nodes(d).width_bar(
+        0.20
+    ).build().show()
 
 
 if __name__ == "__main__":

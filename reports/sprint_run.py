@@ -168,7 +168,10 @@ def by_sprint_html(
     for k, s in ticket_sprint.items():
         link = f"<a href='{url_server}browse/{k}'>{k}</a>"
         if with_name:
-            yield f"<tr><td>{link} {s["name"]}"
+            if "assignee" in s and s["assignee"]:
+                yield f"<tr class='ff {s["assignee"].split("@")[0].replace(".","_")}'><td>{link} {s["name"]}"
+            else:
+                yield f"<tr class='ff'><td>{link} {s["name"]}"
             if "assignee" in s and s["assignee"]:
                 yield f" - {s["assignee"].split("@")[0]}"
             yield "</td>"

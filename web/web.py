@@ -390,6 +390,17 @@ class MyServer(BaseHTTPRequestHandler):
                         elif action == b"time_nb":
                             self.wl(time_nb(project))
                         elif action == b"sprint_run":
+                            self.wl(
+                                f"Filter affected: <input type='txt' id='filter_sprint_run_{project}'/>"
+                                "<input type='submit' value='filter'"
+                                f'onclick=\'document.querySelectorAll(".ff").forEach((el) => el.style.display="none");'
+                                f'document.querySelectorAll("."+'
+                                f'document.getElementById("filter_sprint_run_{project}").value.replaceAll(".","_")).'
+                                f'forEach((el) => el.style.display="");return false\'/>'
+                                "<input type='submit' value='reset'"
+                                f"onclick='"
+                                f'document.querySelectorAll(".ff").forEach((el) => el.style.display="");return false\'/>'
+                            )
                             for sr in sprint_run(
                                 project=project,
                                 date=None,
