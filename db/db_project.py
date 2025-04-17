@@ -358,14 +358,16 @@ def verify_project(project: str):
         # print(con.table(project + "_suivi").count("day").fetchdf())
 
 
-def tickets(project: str):
+def tickets(project: str, filtre_db: str | None = None):
     data_conf = jiraconf()["projects"][project]
     db_path = data_conf["path_data"] + project + ".db"
     t = {}
+    req = f"select * from {project} a where (status is null or status <> 'Canceled')"
+    if filtre_db:
+        req += f" and {filtre_db}"
+    # print(req)
     with duckdb.connect(db_path) as con:
-        result = con.sql(
-            f"select * from {project} where status is null or status <> 'Canceled'"
-        )
+        result = con.sql(req)
         columns = result.columns[2:]
         for day_ticket in result.fetchall():
             # print(day_ticket)
@@ -480,6 +482,11 @@ def cycle_time(project, day):
 
     d = {}
     with duckdb.connect(db_path) as con:
+        print(
+            "\t".join(("year_done", "quarter_done", "estimate", "cycle_time", "ticket"))
+        )
+        for s in con.sql(sql_data + " order by 3 desc, 1, 2;", params=[day]).fetchall():
+            print("\t".join([str(d) for d in s]))
         for s in con.sql(sql, params=[day]).fetchall():
             estimate = 0 if s[2] is None else s[2]
             key = f"{str(s[0])[2:]}-{s[1]}#{estimate}"

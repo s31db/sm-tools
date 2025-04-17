@@ -59,9 +59,15 @@ def jira_treemap(
     asof: str | None = None,
     fake: bool = False,
     db: bool = False,
+    filtre_db: str | None = None,
 ):
     data_conf, n, now = get_tree(
-        project=project, suffix=suffix, date_file=date_file, asof=asof, db=db
+        project=project,
+        suffix=suffix,
+        date_file=date_file,
+        asof=asof,
+        db=db,
+        filtre_db=filtre_db,
     )
     t = Treemap(
         project + " " + now,
@@ -109,6 +115,7 @@ def get_tree(
     date_file: str | None = None,
     asof: str | None = None,
     db: bool = False,
+    filtre_db: str | None = None,
 ) -> tuple[
     dict[str, dict[str, dict[str, str | list[str] | int | float]]],
     dict[str, str | dict[str, dict[str, str | int | float]]],
@@ -116,14 +123,18 @@ def get_tree(
 ]:
     now = datefile(asof if asof else date_file)
     data_conf, datas_sm = prepare_data(
-        project=project, suffix=suffix, date_file=date_file, db=db
+        project=project, suffix=suffix, date_file=date_file, db=db, filtre_db=filtre_db
     )
     n = tree.build_tree(datas_sm[now])[1]
     return data_conf, n, now
 
 
 def prepare_data(
-    project: str, suffix: str, date_file: str | None = None, db: bool = False
+    project: str,
+    suffix: str,
+    date_file: str | None = None,
+    db: bool = False,
+    filtre_db: str | None = None,
 ) -> tuple[
     dict[str, dict[str, dict[str, dict[str, str | int | list[str] | dict[str, str]]]]],
     dict[str, dict[str, dict[str, None | float | str | int | dict[str, str]]]],
@@ -134,7 +145,7 @@ def prepare_data(
     if db:
         from db.db_project import tickets
 
-        datas_sm = tickets(project=project)
+        datas_sm = tickets(project=project, filtre_db=filtre_db)
     else:
         now = datefile(date_file)
         path_file = f"{data_conf['projects'][project]['path_data']}{now.replace('-', '')}{project}_{suffix}.json"

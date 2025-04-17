@@ -1,6 +1,6 @@
 import logging
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from urllib.parse import parse_qs, quote
+from urllib.parse import parse_qs, quote, unquote
 from HtmlClipboard import put_html
 from sm import (
     jiraconf,
@@ -62,10 +62,11 @@ class MyServer(BaseHTTPRequestHandler):
                 )[0]
             else:
                 j = jira_treemap(
-                    project=self.path.split("project=")[1],
+                    project=self.path.split("project=")[1].split("&filtre_db=")[0],
                     date_file=asof,
                     html=False,
                     db=db,
+                    filtre_db=unquote(self.path.split("filtre_db=")[1]),
                 )
             self.w(j.chart_html())
         else:
@@ -120,6 +121,11 @@ class MyServer(BaseHTTPRequestHandler):
             self.wl(
                 f"<input name='{key}_filter' id='{key}_filter' "
                 f"type='text' value='{escape(conf['filter'])}' size='200'/>"
+            )
+            self.w(f"<label for='{key}_filtre_db'>Filtre DB: </label>")
+            self.wl(
+                f"<input name='{key}_filtre_db' id='{key}_filtre_db' "
+                f"type='text' value='{escape(conf.get('filtre_db', ''))}' size='200'/>"
             )
             self.w(f"<label for='{key}_asof'>Asof : </label>")
             self.w(f"<input type='date' name='{key}_asof' id='{key}_asof'/>")
@@ -242,6 +248,7 @@ class MyServer(BaseHTTPRequestHandler):
             for b_project in req[b"projects"]:
                 actions = b_project + b"_actions"
                 b_filtre = b_project + b"_filter"
+                b_filtre_db = b_project + b"_filtre_db"
                 b_start = b_project + b"_start"
                 b_end = b_project + b"_end"
                 b_now = b_project + b"_now"
@@ -251,6 +258,7 @@ class MyServer(BaseHTTPRequestHandler):
 
                 project = b_project.decode("utf-8")
                 filtre = unescape(req[b_filtre][0].decode("utf-8"))
+                filtre_db = unescape(req[b_filtre_db][0].decode("utf-8"))
                 start = unescape(req[b_start][0].decode("utf-8"))
                 end = unescape(req[b_end][0].decode("utf-8"))
                 now = b_now in req
@@ -278,7 +286,12 @@ class MyServer(BaseHTTPRequestHandler):
                     self.wl(
                         f'<a href="{conf["url_server"]}secure/RapidBoard.jspa?projectKey={project}&rapidView={conf['board_id']}">{escape(conf['name'])} board</a>'
                     )
-                    self.w(f'<a href="/treemap?project={project}"')
+                    if filtre_db:
+                        self.w(
+                            f'<a href="/treemap?project={project}&filtre_db={quote(filtre_db)}"'
+                        )
+                    else:
+                        self.w(f'<a href="/treemap?project={project}"')
                 self.wl(f' download="{project}_treemap.html">Treemap file</a>')
                 db = conf["db"] if "db" in conf else False
                 if actions in req:
@@ -347,7 +360,11 @@ class MyServer(BaseHTTPRequestHandler):
                                 )[0]
                             else:
                                 j = jira_treemap(
-                                    project=project, date_file=asof, html=False, db=db
+                                    project=project,
+                                    date_file=asof,
+                                    html=False,
+                                    db=db,
+                                    filtre_db=filtre_db,
                                 )
                             self.wl(j.chart_html(full_html=False))
                         elif action == b"Anime":
