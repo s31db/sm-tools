@@ -10,6 +10,7 @@ projects:
     name: Example_Worklog_Plan
     url_server: mock
     token_auth: mock
+#    token_auth: $JIRA.token_auth
     path_data: datas/
     path_export: export/
     verify_ssl: True
@@ -34,6 +35,8 @@ projects:
     token_auth: mock
     path_data: datas/
     filter: ''
+    db: True
+    filter_db: '"day" >= ''2025-01-01'''
     start: '2023-01-01'
     weeks: 12
     verify_ssl: True
@@ -78,6 +81,9 @@ projects:
         field: customfield_10101
         field_changelog: Epic Link
         default_name: No Epic
+        type: Epic
+#        other_projects :
+#          - NOP
     status_done:
       - Done
       - Close

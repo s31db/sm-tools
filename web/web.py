@@ -66,7 +66,11 @@ class MyServer(BaseHTTPRequestHandler):
                     date_file=asof,
                     html=False,
                     db=db,
-                    filtre_db=unquote(self.path.split("filtre_db=")[1]),
+                    filtre_db=unquote(
+                        self.path.split("filtre_db=")[1]
+                        if "filtre_db=" in self.path
+                        else ""
+                    ),
                 )
             self.w(j.chart_html())
         else:

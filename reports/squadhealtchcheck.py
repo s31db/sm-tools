@@ -98,6 +98,8 @@ def test_dates_teams():
         title = key
         titles.append(key)
         for i, group in enumerate(values["data"]["group"]):
+            if group not in ("TeamA",):  # filter Teams
+                continue
             if group not in teams:
                 teams[group] = [values["data"]["dates"][i]]
                 teams_sqh[group] = {title: {}}
@@ -114,7 +116,7 @@ def test_dates_teams():
     print()
     # tab_sqh(teams_sqh, titles)
 
-    # tab_sqh_critere_period(teams_sqh, titles)
+    tab_sqh_critere_period(teams_sqh, titles)
 
     # by_periods(teams_sqh, titles)
 
@@ -126,7 +128,7 @@ def test_dates_teams():
 
     # by_evolution(teams_sqh, titles)
 
-    last_values(teams_sqh, titles)
+    # last_values(teams_sqh, titles)
 
     # for team in teams_sqh:
 
@@ -143,13 +145,13 @@ def tab_sqh(teams_sqh, titles):
 
 def tab_sqh_critere_period(teams_sqh, titles):
     # sep = "\t"
-    sep = " | "
-    print("| ", end="")
-    print("Criterias", *titles, "", sep=sep)
-    print("| --------|---------|-------|--------|---------|-------|-------|")
+    sep = "|"
+    print(sep * 2, end="")
+    print("Criterias", *titles, "", sep=sep * 2)
+    # print("| --------|---------|-------|--------|---------|-------|-------|")
     for criteria in criterias:
-        print("| ", end="")
-        print(criteria, sep=sep, end=sep)
+        print("||", end="")
+        print(criteria, end=sep)
         for title in titles:
             critere_period = {value_critere: 0 for value_critere in values_critere}
             for team, values in teams_sqh.items():
@@ -162,7 +164,8 @@ def tab_sqh_critere_period(teams_sqh, titles):
             print(
                 "🟢" * critere_period[values_critere[0]]
                 + "🟠" * critere_period[values_critere[1]]
-                + "🔴" * critere_period[values_critere[2]],
+                + "🔴" * critere_period[values_critere[2]]
+                + " ",
                 # critere_period,
                 end=sep,
             )
