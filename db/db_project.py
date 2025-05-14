@@ -6,6 +6,8 @@ from helpers.prepare_date_sprint import add_dates
 from atlassian.jiraSM import JiraSM
 from datetime import date, timedelta
 
+SERIAL_TICKET_KEY = "day, ticket"
+
 CONF_TABLES = {
     "sprint": {
         "primary_keys": {"fields": {"sprint": "int"}},
@@ -55,7 +57,7 @@ def create_tempo(con: DuckDBPyConnection, dir_path: str, project: str):
     con.sql(f"SET temp_directory = ?", params=[dir_path])
     table = project + "_tempo"
     con.sql(f"Drop TABLE IF EXISTS {table}")
-    req = f'CREATE TEMP TABLE IF NOT EXISTS {table} (day string, ticket string, "{'" string, "'.join(project_fields(project=project))}" string, PRIMARY KEY (day, ticket))'
+    req = f'CREATE TEMP TABLE IF NOT EXISTS {table} (day string, ticket string, "{'" string, "'.join(project_fields(project=project))}" string, PRIMARY KEY ({SERIAL_TICKET_KEY}))'
     req = req.replace('"estimate" string', '"estimate" float')
     con.sql(req)
 
@@ -64,14 +66,14 @@ def prepare(path: str, project: str):
     with duckdb.connect(path) as con:
         table = project
         con.sql(f"Drop TABLE IF EXISTS {table}")
-        req = f'CREATE TABLE IF NOT EXISTS {table} (day string, ticket string, "{'" string, "'.join(project_fields(project=project))}" string, PRIMARY KEY (day, ticket))'
+        req = f'CREATE TABLE IF NOT EXISTS {table} (day string, ticket string, "{'" string, "'.join(project_fields(project=project))}" string, PRIMARY KEY ({SERIAL_TICKET_KEY}))'
         req = req.replace('"estimate" string', '"estimate" float')
         con.sql(req)
         # con.table(project).show()
 
         table = project + "_epic"
         con.sql(f"Drop TABLE IF EXISTS {table}")
-        req = f'CREATE TABLE IF NOT EXISTS {table} (day string, ticket string, "{'" string, "'.join(epic_fields(project=project))}" string, PRIMARY KEY (day, ticket))'
+        req = f'CREATE TABLE IF NOT EXISTS {table} (day string, ticket string, "{'" string, "'.join(epic_fields(project=project))}" string, PRIMARY KEY ({SERIAL_TICKET_KEY}))'
         con.sql(req)
         # con.table(f"{table}").show()
 
@@ -116,7 +118,7 @@ def insert_from_file(path: str, project: str):
 
 def verify(path: str, table_name: str):
     with duckdb.connect(path) as con:
-        con.table(table_name).order("day, ticket").show()
+        con.table(table_name).order(SERIAL_TICKET_KEY).show()
         print(con.table(table_name).count("day").fetchdf())
 
 
@@ -124,7 +126,7 @@ def validate_project_data(project: str, table_name: str):
     data_conf = jiraconf()["projects"][project]
     db_path = data_conf["path_data"] + project + ".db"
     with duckdb.connect(db_path) as con:
-        con.table(table_name).order("day, ticket").show()
+        con.table(table_name).order(SERIAL_TICKET_KEY).show()
         print(con.table(table_name).count("day").fetchdf())
         # TODO check consistency
 
@@ -188,7 +190,7 @@ def insert_or_update(
                 )
         update_fields = [f'"{field}" = EXCLUDED."{field}"' for field in fields]
         con.execute(
-            f"INSERT INTO {project} select * from {project}_tempo ON CONFLICT (day, ticket) DO UPDATE set {", ".join(update_fields)}"
+            f"INSERT INTO {project} select * from {project}_tempo ON CONFLICT ({SERIAL_TICKET_KEY}) DO UPDATE set {", ".join(update_fields)}"
         )
         con.execute(
             f"INSERT INTO {project}_suivi (typ, day) values ('ticket', ?) ON CONFLICT DO NOTHING",
@@ -253,7 +255,7 @@ def epic(path: str, project: str, start_date: str | None = None, updated: bool =
                 vals = [day, ticket]
                 prepare_values(fields, vals, values)
                 con.execute(
-                    f"INSERT INTO {project}_epic {prepare_insert} ON CONFLICT (day, ticket) DO UPDATE set {", ".join(update_fields)}",
+                    f"INSERT INTO {project}_epic {prepare_insert} ON CONFLICT ({SERIAL_TICKET_KEY}) DO UPDATE set {", ".join(update_fields)}",
                     vals,
                 )
         con.execute(
@@ -327,7 +329,7 @@ def verify_project(project: str):
     print(project)
     with duckdb.connect(db_path) as con:
         print("Ticket")
-        con.table(project).order("day, ticket").show()
+        con.table(project).order(SERIAL_TICKET_KEY).show()
         print(con.table(project).count("day").fetchdf())
         print(
             con.sql(
@@ -341,7 +343,7 @@ def verify_project(project: str):
         # )
 
         print("Epic")
-        # con.table(project + "_epic").order("day, ticket").show()
+        # con.table(project + "_epic").order(DAY_TICKET).show()
         print(con.table(project + "_epic").count("day").fetchdf())
         print(
             con.sql(

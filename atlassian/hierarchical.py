@@ -4,6 +4,7 @@ import logging
 SUPER = "super"
 SUPER_NAME = "super.name"
 SUPER_STATUS = "super.status"
+SUPER_TYPE = "super.type"
 SUPER_SUPER = "super.super"
 SUPER_SUPER_NAME = "super.super.name"
 SUPER_SUPER_STATUS = "super.super.status"
@@ -78,7 +79,7 @@ def add_super(
             us_date[date][ticket.key][SUPER] = "-1"
         us_date[date][ticket.key][SUPER_NAME] = _super["default_name"]
         us_date[date][ticket.key][SUPER_STATUS] = ""
-        us_date[date][ticket.key]["super.type"] = ""
+        us_date[date][ticket.key][SUPER_TYPE] = ""
     else:
         if "type" in _super and _super["type"] == "Sprint":
             try:
@@ -93,7 +94,7 @@ def add_super(
                 us_date[date][ticket.key][SUPER_STATUS] = (
                     ticket_super[-1].split(",state=")[-1].split(",name=")[0]
                 )
-                us_date[date][ticket.key]["super.type"] = "Sprint"
+                us_date[date][ticket.key][SUPER_TYPE] = "Sprint"
             except IndexError as ie:
                 logging.error(ie)
         else:
@@ -105,9 +106,9 @@ def add_super(
                 us_date[date][ticket.key][SUPER_NAME] = epics_date[date][ticket_super][
                     "name"
                 ]
-                us_date[date][ticket.key]["super.type"] = epics_date[date][
-                    ticket_super
-                ]["type"]
+                us_date[date][ticket.key][SUPER_TYPE] = epics_date[date][ticket_super][
+                    "type"
+                ]
         if (
             "super" in _super
             and "type" in _super["super"]

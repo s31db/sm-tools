@@ -22,25 +22,23 @@ criterias = [
 values_critere = ["green", "orange", "red"]
 
 
-def test_local():
+def sqh(file, date_shc) -> Radar:
 
-    date_shc = "202501"
-    with open("squadhelathcheck.json", "r", encoding="utf-8") as fp:
+    with open(file, "r", encoding="utf-8") as fp:
         data = json.load(fp)
     data[date_shc]["data"].pop("dates")
+    data[date_shc]["data"].pop("dates_int")
     df = pd.DataFrame(data[date_shc]["data"])
-    file_path = f"tmp/radar_health_check_{date_shc}.png"
-    Radar(title=data[date_shc]["title"]).build(df).save(file_path).show()
-
-    send_to_clipboard_image(file_path)
+    radar = Radar(title=data[date_shc]["title"]).build(df)
+    return radar
 
 
-def test_local_team():
-    with open("squadhelathcheck.json", "r", encoding="utf-8") as fp:
+def sqh_team(file, teams) -> dict[str, Radar]:
+    with open(file, "r", encoding="utf-8") as fp:
         data = json.load(fp)
-    from time import sleep
 
-    for team in ("TeamA",):
+    radars: dict[str, Radar] = {}
+    for team in teams:
         team_data = {"title": team, "data": {"group": [], "color": []}}
         for key, values in data.items():
             if team in values["data"]["group"]:
@@ -48,19 +46,15 @@ def test_local_team():
                 team_data["data"]["color"].append("b")
                 n = values["data"]["group"].index(team)
                 for data_key, data_values in values["data"].items():
-                    if data_key not in ("group", "color"):
+                    if data_key not in ("group", "color", "dates", "dates_int"):
                         if data_key in team_data["data"]:
                             team_data["data"][data_key].append(data_values[n])
                         else:
                             team_data["data"][data_key] = [data_values[n]]
-        # print(team_data)
         df = pd.DataFrame(team_data["data"])
-        file_path = "tmp/radar_health_check_{team}.png"
-        # Radar(title=team_data["title"]).build(df).show()
-        Radar(title=team_data["title"]).build(df).save(file_path)
-
-        send_to_clipboard_image(file_path)
-        print("ready", team, file_path)
+        radar = Radar(title=team_data["title"]).build(df)
+        radars[team] = radar
+    return radars
 
 
 def prepare_values(values, pos):
@@ -88,8 +82,8 @@ def prepare_values(values, pos):
         yield criteria, res
 
 
-def test_dates_teams():
-    with open("squadhelathcheck.json", "r", encoding="utf-8") as fp:
+def prepare_dates_teams(file):
+    with open(file, "r", encoding="utf-8") as fp:
         data = json.load(fp)
     teams = {}
     teams_sqh = {}
@@ -98,42 +92,21 @@ def test_dates_teams():
         title = key
         titles.append(key)
         for i, group in enumerate(values["data"]["group"]):
-            if group not in ("TeamA",):  # filter Teams
-                continue
+            # if group not in ("TeamA",):  # filter Teams
+            #     continue
             if group not in teams:
                 teams[group] = [values["data"]["dates"][i]]
                 teams_sqh[group] = {title: {}}
             else:
                 teams[group].append(values["data"]["dates"][i])
                 teams_sqh[group][title] = {}
-            # print(title, i)
             for criteria, value in prepare_values(values["data"], i):
-                # print(criteria, value)
                 teams_sqh[group][title][criteria] = value
-            # print(group, values["data"]["dates"][i])
-    # print(teams)
-    # titles
-    print()
-    # tab_sqh(teams_sqh, titles)
-
-    tab_sqh_critere_period(teams_sqh, titles)
-
-    # by_periods(teams_sqh, titles)
-
-    # by_criterias(teams_sqh, titles)
-
-    # by_teams(teams_sqh, titles)
-
-    # by_criterias_periods(teams_sqh, titles)
-
-    # by_evolution(teams_sqh, titles)
-
-    # last_values(teams_sqh, titles)
-
-    # for team in teams_sqh:
+    return teams_sqh, titles
 
 
-def tab_sqh(teams_sqh, titles):
+def tab_sqh(file):
+    teams_sqh, titles = prepare_dates_teams(file)
     print("SQH", "Criterias", *titles, sep="\t")
     for team, values in teams_sqh.items():
         for criteria in criterias:
@@ -143,7 +116,8 @@ def tab_sqh(teams_sqh, titles):
             print()
 
 
-def tab_sqh_critere_period(teams_sqh, titles):
+def tab_sqh_critere_period(file):
+    teams_sqh, titles = prepare_dates_teams(file)
     # sep = "\t"
     sep = "|"
     print(sep * 2, end="")
@@ -172,7 +146,8 @@ def tab_sqh_critere_period(teams_sqh, titles):
         print()
 
 
-def by_periods(teams_sqh, titles):
+def by_periods(file) -> Barcompare:
+    teams_sqh, titles = prepare_dates_teams(file)
     # group par period
     periods = {}
     for title in titles:
@@ -183,14 +158,19 @@ def by_periods(teams_sqh, titles):
                     for criteria in criterias:
                         periods[title][v] += values[title][criteria][v]
     print(periods)
-    file_path = f"radar_health_check_periods.png"
-    Barcompare(
-        "SQH group par period", colors={v: v for v in values_critere}, legend=False
-    ).nodes(periods).width_bar(0.25).build().save(file_path).show()
-    send_to_clipboard_image(file_path)
+    barcompare = (
+        Barcompare(
+            "SQH group par period", colors={v: v for v in values_critere}, legend=False
+        )
+        .nodes(periods)
+        .width_bar(0.25)
+        .build()
+    )
+    return barcompare
 
 
-def last_values(teams_sqh, titles):
+def last_values(file) -> Radar:
+    teams_sqh, titles = prepare_dates_teams(file)
     # last_values
     teams = {}
     for team, values in teams_sqh.items():
@@ -205,14 +185,13 @@ def last_values(teams_sqh, titles):
     for criteria in criterias:
         datas[criteria] = [list(team[criteria].values()) for team in teams.values()]
     datas["group"] = list(teams.keys())
-    # print(datas)
     df = pd.DataFrame(datas)
-    file_path = f"tmp/radar_health_check_last_values.png"
-    Radar(title="SQH last_values", figsize=(10, 11)).build(df).save(file_path)
-    # send_to_clipboard_image(file_path)
+    radar = Radar(title="SQH last_values", figsize=(10, 11)).build(df)
+    return radar
 
 
-def by_criterias(teams_sqh, titles):
+def by_criterias(file) -> Barcompare:
+    teams_sqh, titles = prepare_dates_teams(file)
     # group par critere
     criteres = {}
     for criteria in criterias:
@@ -223,17 +202,22 @@ def by_criterias(teams_sqh, titles):
                     for v in values_critere:
                         criteres[criteria][v] += values[title][criteria][v]
     print(criteres)
-    file_path = f"tmp/radar_health_check_criteres.png"
-    Barcompare(
-        "SQH group par critères",
-        colors={v: v for v in values_critere},
-        legend=False,
-        figsize=(18, 7),
-    ).nodes(criteres).width_bar(0.25).build().save(file_path).show()
-    send_to_clipboard_image(file_path)
+    barcompare = (
+        Barcompare(
+            "SQH group par critères",
+            colors={v: v for v in values_critere},
+            legend=False,
+            figsize=(18, 7),
+        )
+        .nodes(criteres)
+        .width_bar(0.25)
+        .build()
+    )
+    return barcompare
 
 
-def by_criterias_periods(teams_sqh, titles):
+def by_criterias_periods(file) -> BarcompareCumul:
+    teams_sqh, titles = prepare_dates_teams(file)
     # group par period
     criteria_periods = {}
     for criteria in criterias:
@@ -260,17 +244,22 @@ def by_criterias_periods(teams_sqh, titles):
             # criteria_periods_nodes[key].append(value)
             # criteria_periods_nodes[key] += value
     print(criteria_periods_nodes)
-    file_path = f"tmp/radar_health_check_criteria_periods.png"
-    BarcompareCumul(
-        "SQH group par criteria period",
-        colors={f"{v}_{i}": v for v in values_critere for i in range(7)},
-        legend=False,
-        figsize=(18, 7),
-    ).nodes(criteria_periods_nodes).width_bar(0.25).build().save(file_path).show()
-    send_to_clipboard_image(file_path)
+    barcompare_cumul = (
+        BarcompareCumul(
+            "SQH group par criteria period",
+            colors={f"{v}_{i}": v for v in values_critere for i in range(7)},
+            legend=False,
+            figsize=(18, 7),
+        )
+        .nodes(criteria_periods_nodes)
+        .width_bar(0.25)
+        .build()
+    )
+    return barcompare_cumul
 
 
-def by_teams(teams_sqh, titles):
+def by_teams(file) -> Barcompare:
+    teams_sqh, titles = prepare_dates_teams(file)
     # group par equipe
     equipes = {}
     for team, values in teams_sqh.items():
@@ -281,17 +270,21 @@ def by_teams(teams_sqh, titles):
                     for v in values_critere:
                         equipes[team][v] += values[title][criteria][v]
     print(equipes)
-    file_path = f"tmp/radar_health_check_teams.png"
-    Barcompare(
-        "SQH group par teams",
-        colors={v: v for v in values_critere},
-        legend=False,
-        figsize=(18, 7),
-    ).nodes(equipes).width_bar(0.25).build().save(file_path).show()
-    send_to_clipboard_image(file_path)
+    barcompare = (
+        Barcompare(
+            "SQH group par teams",
+            colors={v: v for v in values_critere},
+            legend=False,
+            figsize=(18, 7),
+        )
+        .nodes(equipes)
+        .width_bar(0.25)
+        .build()
+    )
 
 
-def by_evolution(teams_sqh, titles):
+def by_evolution(file) -> Line:
+    teams_sqh, titles = prepare_dates_teams(file)
     # group par equipe
     equipes = {}
     evolutions = {}
@@ -323,14 +316,13 @@ def by_evolution(teams_sqh, titles):
                                 else 1 if equipes[team][criteria] > val else 0
                             )
                     equipes[team][criteria] = val
-    print(evolutions)
+    # print(evolutions)
     evolutions_criteria = {criteria: [] for criteria in criterias}
     for key, ev in evolutions.items():
         for criteria in criterias:
             if criteria in ev:
                 evolutions_criteria[criteria].append(ev[criteria])
-    file_path = f"tmp/radar_health_check_evolution.png"
-    Line(
+    line = Line(
         "SQH group par evolution",
         datas=evolutions_criteria,
         legend=True,
@@ -338,31 +330,75 @@ def by_evolution(teams_sqh, titles):
         ylabel_width=20,
         bar_label=True,
         figsize=(18, 7),
-    ).build().save(file_path).show()
-    send_to_clipboard_image(file_path)
+    ).build()
+    return line
 
 
-# Example
+FILE_TEST = "../example/squadhealthcheck.json"
 
-# {
-#   "202501": {
-#     "title": "Squad Health Check 2025 01",
-#     "link": "",
-#     "data": {
-#       "group": ["TeamA", "TeamB", "TeamC", "TeamD", "TeamE"],
-#       "dates": ["05 Jan 2025", "07 Jan 2025", "09 Jan 2025", "11 Jan 2025", "10 Jan 2025"],
-#       "dates_int": ["2025-01-05", "2025-01-07", "2025-02-09", "2025-01-11", "2025-01-10"],
-#       "color": ["b", "r", "g", "p", "v"],
-#       "Mission": [[1, 0, 0], [1, 0, 0], [1, 0, 0], [1, 0, 0], [1, 0, 0]],
-#       "Pawns or players": [[1, 0, 0], [1, 0, 0], [1, 0, 0], [1, 0, 0], [1, 0, 0]],
-#       "Teamwork": [[1, 0, 0], [1, 0, 0], [1, 0, 0], [1, 0, 0], [1, 0, 0]],
-#       "Suitable process": [[1, 0, 0], [1, 0, 0], [1, 0, 0], [1, 0, 0], [1, 0, 0]],
-#       "Delivering value": [[1, 0, 0], [1, 0, 0], [1, 0, 0], [1, 0, 0], [1, 0, 0]],
-#       "Easy to release": [[1, 0, 0], [1, 0, 0], [1, 0, 0], [1, 0, 0], [1, 0, 0]],
-#       "Speed": [[1, 0, 0], [1, 0, 0], [1, 0, 0], [1, 0, 0], [1, 0, 0]],
-#       "Health of codebase": [[1, 0, 0], [1, 0, 0], [1, 0, 0], [1, 0, 0], [1, 0, 0]],
-#       "Support": [[1, 0, 0], [1, 0, 0], [1, 0, 0], [1, 0, 0], [1, 0, 0]],
-#       "Learning": [[1, 0, 0], [1, 0, 0], [1, 0, 0], [1, 0, 0], [1, 0, 0]],
-#       "Fun!": [[1, 0, 0], [1, 0, 0], [1, 0, 0], [1, 0, 0], [1, 0, 0]],
-#     }
-#   },
+
+def test_sqh():
+    date_shc = "202501"
+    file_path = f"tmp/radar_health_check_{date_shc}.png"
+    radar = sqh(FILE_TEST, date_shc=date_shc)
+    # radar.save(file_path).show()
+    # send_to_clipboard_image(file_path)
+
+
+def test_sqh_team():
+    radars = sqh_team(FILE_TEST, teams=("TeamA",))
+    for team, radar in radars.items():
+        file_path = f"tmp/radar_health_check_{team}.png"
+        # radar.save(file_path)
+        # send_to_clipboard_image(file_path)
+        # print("ready", team, file_path)
+
+
+def test_tab_sqh():
+    tab_sqh(FILE_TEST)
+
+
+def test_tab_sqh_critere_period():
+    tab_sqh_critere_period(FILE_TEST)
+
+
+def test_by_periods():
+    barcompare = by_periods(FILE_TEST)
+    # file_path = f"radar_health_check_periods.png"
+    # barcompare.save(file_path).show()
+    # send_to_clipboard_image(file_path)
+
+
+def test_by_criterias():
+    barcompare = by_criterias(FILE_TEST)
+    # file_path = f"tmp/radar_health_check_criteres.png"
+    # barcompare.save(file_path).show()
+    # send_to_clipboard_image(file_path)
+
+
+def test_by_teams():
+    barcompare = by_teams(FILE_TEST)
+    # file_path = f"tmp/radar_health_check_teams.png"
+    # barcompare.save(file_path).show()
+    # send_to_clipboard_image(file_path)
+
+
+def test_by_criterias_periods():
+    barcompare_cumul = by_criterias_periods(FILE_TEST)
+    # file_path = f"tmp/radar_health_check_criteria_periods.png"
+    # barcompare_cumul.save(file_path).show()
+    # send_to_clipboard_image(file_path)
+
+
+def test_by_evolution():
+    line = by_evolution(FILE_TEST)
+    # file_path = f"tmp/radar_health_check_evolution.png"
+    # line.save(file_path).show()
+    # send_to_clipboard_image(file_path)
+
+
+def test_last_values():
+    radar = last_values(FILE_TEST)
+    # file_path = f"tmp/radar_health_check_last_values.png"
+    # radar.save(file_path)
+    # send_to_clipboard_image(file_path)

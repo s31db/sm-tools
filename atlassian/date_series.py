@@ -1,7 +1,7 @@
 def field_changelog(
     asof: str | None,
     changelog_date: str,
-    changelog_item_fromString: str,
+    changelog_item_from_string: str,
     created: str,
     dates: list[str],
     field: str,
@@ -18,7 +18,7 @@ def field_changelog(
                 <= us_date[date][ticket_key]["update"][field]
                 == dates[-1]
             ):
-                us_date[date][ticket_key][field] = changelog_item_fromString
+                us_date[date][ticket_key][field] = changelog_item_from_string
                 us_date[date][ticket_key]["update"][field] = changelog_date
 
 
@@ -39,7 +39,7 @@ def test_field_changelog():
     field_changelog(
         asof=None,
         changelog_date="2025-03-25",
-        changelog_item_fromString="val_2025-03-25_bis",
+        changelog_item_from_string="val_2025-03-25_bis",
         created="2024-05-11",
         dates=dates,
         field="status",
@@ -74,7 +74,7 @@ def second_change(dates, us_date):
     field_changelog(
         asof=None,
         changelog_date="2025-03-25",
-        changelog_item_fromString="val_2025-03-25",
+        changelog_item_from_string="val_2025-03-25",
         created="2024-05-11",
         dates=dates,
         field="status",
@@ -107,7 +107,7 @@ def third_change(dates, us_date):
     field_changelog(
         asof=None,
         changelog_date="2025-03-27",
-        changelog_item_fromString="val_2025-03-27",
+        changelog_item_from_string="val_2025-03-27",
         created="2024-05-11",
         dates=dates,
         field="status",

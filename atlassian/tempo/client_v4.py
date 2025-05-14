@@ -45,6 +45,7 @@ class Tempo(RestAPIClient):
         parsed = datetime.strptime(value, r"%Y-%m-%d").date()
         return parsed
 
+    @staticmethod
     def _resolve_time(value):
         _v = Tempo.strip_hrs(value)
         _h = 0

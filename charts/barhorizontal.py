@@ -5,6 +5,7 @@ import textwrap
 import matplotlib.ticker as mtick
 import matplotlib.dates as mdates
 from datetime import datetime
+from typing import Self
 
 
 class BarHorizontal(Chart):
@@ -21,7 +22,7 @@ class BarHorizontal(Chart):
     _format_date: str = "%Y-%m-%d"
     _figsize: tuple[float, float] = (12, 5)
 
-    def build(self):
+    def build(self) -> Self:
 
         fig, ax = plt.subplots(figsize=self._figsize)
         ax.invert_yaxis()
@@ -44,7 +45,7 @@ class BarHorizontal(Chart):
         fig.tight_layout()
         return self
 
-    def build_horizontal(self, ax):
+    def build_horizontal(self, ax) -> Self:
         data = np.array(list(self._datas.values()))
         data_norm = data / data.sum(axis=1, keepdims=True)
         data_cum = data_norm.cumsum(axis=1)
@@ -96,23 +97,9 @@ class BarHorizontal(Chart):
         ax.xaxis.set_major_formatter(mtick.PercentFormatter(xmax=1))
         return self
 
-    def build_dates(self, ax):
-        date_end = self.format_date(self._end_date)
-        datas = {}
-        for key, data in self._datas_dates.items():
-            d = datas[key] = []
-            for i in range(len(data)):
-                d.append(
-                    (
-                        data[i][0],
-                        self.format_date(data[i][1]),
-                        (
-                            date_end
-                            if len(data) == i + 1
-                            else self.format_date(data[i + 1][1])
-                        ),
-                    )
-                )
+    def build_dates(self, ax) -> Self:
+
+        datas = self.prepare_dates()
 
         for y, (ticket, data) in enumerate(datas.items()):
             for col_label, start, end in data:
@@ -156,7 +143,26 @@ class BarHorizontal(Chart):
         plt.grid(axis="x", linestyle="--", alpha=0.5)
         return self
 
-    def format_date(self, date_string: str):
+    def prepare_dates(self) -> dict[str, list[str]]:
+        date_end = self.format_date(self._end_date)
+        datas = {}
+        for key, data in self._datas_dates.items():
+            d = datas[key] = []
+            for i in range(len(data)):
+                d.append(
+                    (
+                        data[i][0],
+                        self.format_date(data[i][1]),
+                        (
+                            date_end
+                            if len(data) == i + 1
+                            else self.format_date(data[i + 1][1])
+                        ),
+                    )
+                )
+        return datas
+
+    def format_date(self, date_string: str) -> datetime:
         return datetime.strptime(date_string, self._format_date)
 
 
@@ -214,34 +220,115 @@ def test_barhorizontal_show():
 
 
 def test_barhorizontal_workflow_show():
+    todo = "To Do"
+    progress = "In Progress"
+    review = "Review"
+    done = "Done"
     BarHorizontal(
         "Test BarHorizontal Workflow dates",
         end_date="2024-01-09 18:00",
         format_date="%Y-%m-%d %H:%M",
         datas_dates={
             "T1": (
-                ("To Do", "2024-01-01 08:00"),
-                ("In Progress", "2024-01-02 10:00"),
-                ("Review", "2024-01-03 14:00"),
+                (todo, "2024-01-01 08:00"),
+                (progress, "2024-01-02 10:00"),
+                (review, "2024-01-03 14:00"),
                 # Return to In Progress
-                ("In Progress", "2024-01-03 18:00"),
-                ("Done", "2024-01-04 12:00"),
+                (progress, "2024-01-03 18:00"),
+                (done, "2024-01-04 12:00"),
             ),
             "T2": (
-                ("To Do", "2024-01-01 09:00"),
-                ("In Progress", "2024-01-02 12:00"),
-                ("Review", "2024-01-04 16:00"),
-                ("Done", "2024-01-05 14:00"),
+                (todo, "2024-01-01 09:00"),
+                (progress, "2024-01-02 12:00"),
+                (review, "2024-01-04 16:00"),
+                (done, "2024-01-05 14:00"),
             ),
         },
         colors={
-            "To Do": "gray",
-            "In Progress": "blue",
-            "Review": "orange",
-            "Done": "green",
+            todo: "gray",
+            progress: "blue",
+            review: "orange",
+            done: "green",
         },
         ylabel="Tickets",
         ylabel_width=20,
         legend=False,
         bar_label=True,
     ).build().show()
+
+
+def test_prepare_dates():
+    todo = "To Do"
+    progress = "In Progress"
+    review = "Review"
+    done = "Done"
+    bar = BarHorizontal(
+        "Test prepare dates",
+        end_date="2024-01-09 18:00",
+        format_date="%Y-%m-%d %H:%M",
+        datas_dates={
+            "T1": (
+                (todo, "2024-01-01 08:00"),
+                (progress, "2024-01-02 10:00"),
+                (review, "2024-01-03 14:00"),
+                (progress, "2024-01-03 18:00"),
+                (done, "2024-01-04 12:00"),
+            ),
+            "T2": (
+                (todo, "2024-01-01 09:00"),
+                (progress, "2024-01-02 12:00"),
+                (review, "2024-01-04 16:00"),
+                (done, "2024-01-05 14:00"),
+            ),
+        },
+    )
+    datas = bar.prepare_dates()
+    assert [
+        (
+            todo,
+            datetime(2024, 1, 1, 8, 0),
+            datetime(2024, 1, 2, 10, 0),
+        ),
+        (
+            progress,
+            datetime(2024, 1, 2, 10, 0),
+            datetime(2024, 1, 3, 14, 0),
+        ),
+        (
+            review,
+            datetime(2024, 1, 3, 14, 0),
+            datetime(2024, 1, 3, 18, 0),
+        ),
+        (
+            progress,
+            datetime(2024, 1, 3, 18, 0),
+            datetime(2024, 1, 4, 12, 0),
+        ),
+        (
+            done,
+            datetime(2024, 1, 4, 12, 0),
+            datetime(2024, 1, 9, 18, 0),
+        ),
+    ] == datas["T1"]
+    assert [
+        (
+            todo,
+            datetime(2024, 1, 1, 9, 0),
+            datetime(2024, 1, 2, 12, 0),
+        ),
+        (
+            progress,
+            datetime(2024, 1, 2, 12, 0),
+            datetime(2024, 1, 4, 16, 0),
+        ),
+        (
+            review,
+            datetime(2024, 1, 4, 16, 0),
+            datetime(2024, 1, 5, 14, 0),
+        ),
+        (
+            done,
+            datetime(2024, 1, 5, 14, 0),
+            datetime(2024, 1, 9, 18, 0),
+        ),
+    ] == datas["T2"]
