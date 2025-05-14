@@ -1068,11 +1068,10 @@ def analysis_tree(project: str, date_file: str | None = None):
         )
 
 
-def re_tree(project: str, start_date: str, filtre: str = "", suffix: str = ""):
+def re_tree(project: str, filtre: str = ""):
     data_conf = jiraconf()
-    d = dates(start_date, 128)
     JiraSM(project=project, **data_conf["projects"][project]).conn().tree_jira(
-        list(d), filtre=filtre, suffix=suffix
+        filtre=filtre
     )
 
 

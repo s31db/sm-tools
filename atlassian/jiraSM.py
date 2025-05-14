@@ -1,211 +1,13 @@
 from jira import JIRA, Issue
 import logging
-import statistics
-from decimal import Decimal
-import math
 import json
 from datetime import datetime
 from operator import attrgetter
 from jira.client import ResultList
+from date_series import field_changelog
+from atlassian.hierarchical import SUPER, SUPER_SUPER, add_super, change_super
 
 Y_M_D = "%Y-%m-%d"
-SUPER = "super"
-SUPER_NAME = "super.name"
-SUPER_STATUS = "super.status"
-SUPER_SUPER = "super.super"
-SUPER_SUPER_NAME = "super.super.name"
-SUPER_SUPER_STATUS = "super.super.status"
-
-
-def to_hour(second: int, minus: int | None = None):
-    if second and minus:
-        return second - minus / 3600
-    elif second:
-        return second / 3600
-    elif minus:
-        return minus / -3600
-
-
-def add_super(
-    date: str,
-    ticket_super_super: str | None,
-    epics_date: dict,
-    epics_no_rights: dict,
-    ticket_super: str | None,
-    ticket: Issue,
-    us_date: dict,
-    _super: dict,
-    epic_fields: dict,
-):
-    # if 'type' in _super['super'] and _super['super']['type'] == 'Epic' and
-    # ticket_super_super is not None and ticket_super_super not in epics_date[date]:
-    if (
-        ticket_super_super is not None
-        and ("type" not in _super["super"] or _super["super"]["type"] == "Epic")
-        and ticket_super_super not in epics_date[date]
-    ):
-        epics_no_rights[ticket_super_super] = ticket.key
-    if SUPER in _super:
-        if ticket_super_super is None or (
-            ("type" not in _super["super"] or _super["super"]["type"] == "Epic")
-            and ticket_super_super not in epics_date[date]
-        ):
-            super_super_id = "-2"
-            us_date[date][ticket.key][SUPER_SUPER_STATUS] = ""
-            us_date[date][ticket.key][SUPER_SUPER_NAME] = _super[SUPER]["default_name"]
-        elif "type" in _super["super"] and _super["super"]["type"] == "Sprint":
-            super_super_id = (
-                ticket_super_super[-1].split("[id=")[-1].split(",rapidViewId=")[0]
-            )
-            # if 'type' in _super['super'] and _super['super']['type'] == 'Sprint':
-            # us_date[date][ticket.key][SUPER_SUPER_NAME] = us_date[date][ticket.key]['sprints'][-1]
-            us_date[date][ticket.key][SUPER_SUPER_STATUS] = (
-                ticket_super_super[-1].split(",state=")[-1].split(",name=")[0]
-            )
-            us_date[date][ticket.key][SUPER_SUPER_NAME] = (
-                ticket_super_super[-1].split(",name=")[-1].split(",startDate=")[0]
-            )
-        elif (
-            "type" in _super["super"]
-            and _super["super"]["type"] == "Epic"
-            and epic_fields
-        ):
-            super_super_id = ticket_super_super
-            for epic_field in epic_fields.keys():
-                us_date[date][ticket.key]["super.super." + epic_field] = epics_date[
-                    date
-                ][ticket_super_super][epic_field]
-        else:
-            super_super_id = ticket_super_super
-            # if 'type' in _super['super'] and _super['super']['type'] == 'Epic':
-            us_date[date][ticket.key][SUPER_SUPER_STATUS] = epics_date[date][
-                ticket_super_super
-            ]["status"]
-            us_date[date][ticket.key][SUPER_SUPER_NAME] = epics_date[date][
-                ticket_super_super
-            ]["name"]
-
-        us_date[date][ticket.key][SUPER_SUPER] = super_super_id
-    if ticket_super is None or (
-        "type" in _super and _super["type"] == "Sprint" and not ticket_super
-    ):
-        if SUPER in _super:
-            us_date[date][ticket.key][SUPER] = "-1" + "_" + super_super_id
-        else:
-            us_date[date][ticket.key][SUPER] = "-1"
-        us_date[date][ticket.key][SUPER_NAME] = _super["default_name"]
-        us_date[date][ticket.key][SUPER_STATUS] = ""
-        us_date[date][ticket.key]["super.type"] = ""
-    else:
-        if "type" in _super and _super["type"] == "Sprint":
-            try:
-                us_date[date][ticket.key][SUPER] = (
-                    ticket_super[-1].split("[id=")[-1].split(",rapidViewId=")[0]
-                    + "_"
-                    + super_super_id
-                )
-                us_date[date][ticket.key][SUPER_NAME] = (
-                    ticket_super[-1].split(",name=")[-1].split(",startDate=")[0]
-                )
-                us_date[date][ticket.key][SUPER_STATUS] = (
-                    ticket_super[-1].split(",state=")[-1].split(",name=")[0]
-                )
-                us_date[date][ticket.key]["super.type"] = "Sprint"
-            except IndexError as ie:
-                logging.error(ie)
-        else:
-            us_date[date][ticket.key][SUPER] = ticket_super
-            if ticket_super in epics_date[date]:
-                us_date[date][ticket.key][SUPER_STATUS] = epics_date[date][
-                    ticket_super
-                ]["status"]
-                us_date[date][ticket.key][SUPER_NAME] = epics_date[date][ticket_super][
-                    "name"
-                ]
-                us_date[date][ticket.key]["super.type"] = epics_date[date][
-                    ticket_super
-                ]["type"]
-        if (
-            "super" in _super
-            and "type" in _super["super"]
-            and _super["super"]["type"] == "Sprint"
-        ):
-            us_date[date][ticket.key][SUPER] = f"{ticket_super}_{super_super_id}"
-
-
-def change_super(
-    changelog_date,
-    changelog_item,
-    created,
-    dates,
-    epics_date: dict,
-    ticket,
-    us_date,
-    _super,
-):
-    if changelog_item.field == _super["field_changelog"]:
-        changelog_item_from = getattr(changelog_item, "from")
-        if changelog_item_from is not None:
-            name = changelog_item.fromString
-            if ", " in changelog_item_from:
-                changelog_item_from = changelog_item_from.split(", ")[-1]
-                # XXX not perfect for name
-                name = name.split(", ")[-1]
-        field = SUPER
-        for date in dates:
-            if (
-                created
-                <= date
-                < changelog_date
-                <= us_date[date][ticket.key]["update"][SUPER]
-            ):
-                if SUPER_SUPER in us_date[date][ticket.key]:
-                    super_super_id = us_date[date][ticket.key][SUPER_SUPER]
-                else:
-                    super_super_id = ""
-                if changelog_item_from is None:
-                    us_date[date][ticket.key][SUPER] = "-1" + "_" + super_super_id
-                    us_date[date][ticket.key][SUPER_NAME] = "Backlog"
-                    us_date[date][ticket.key][SUPER_STATUS] = ""
-                else:
-                    us_date[date][ticket.key][SUPER] = (
-                        changelog_item_from + "_" + super_super_id
-                    )
-                    us_date[date][ticket.key][SUPER_NAME] = name
-                    # TODO improve name and status with list sprints by date.
-                    us_date[date][ticket.key][SUPER_STATUS] = ""
-                us_date[date][ticket.key]["update"][field] = changelog_date
-    elif changelog_item.field == _super[SUPER]["field_changelog"]:
-        super_super_id = getattr(changelog_item, "from")
-        field = SUPER_SUPER
-        for date in dates:
-            if (
-                created
-                <= date
-                < changelog_date
-                <= us_date[date][ticket.key]["update"][SUPER_SUPER]
-            ):
-                if super_super_id is None or super_super_id not in epics_date[date]:
-                    us_date[date][ticket.key][SUPER_SUPER] = "-2"
-                    us_date[date][ticket.key][SUPER] = (
-                        us_date[date][ticket.key][SUPER].split("_")[0] + "_-2"
-                    )
-                    us_date[date][ticket.key][SUPER_SUPER_STATUS] = ""
-                    us_date[date][ticket.key][SUPER_SUPER_STATUS] = "No Epic"
-                else:
-                    us_date[date][ticket.key][SUPER_SUPER] = super_super_id
-                    us_date[date][ticket.key][SUPER] = (
-                        us_date[date][ticket.key][SUPER].split("_")[0]
-                        + "_"
-                        + super_super_id
-                    )
-                    us_date[date][ticket.key][SUPER_SUPER_STATUS] = epics_date[date][
-                        super_super_id
-                    ]["status"]
-                    us_date[date][ticket.key][SUPER_SUPER_STATUS] = epics_date[date][
-                        super_super_id
-                    ]["name"]
-                us_date[date][ticket.key]["update"][field] = changelog_date
 
 
 class JiraSM:
@@ -278,125 +80,8 @@ class JiraSM:
         #         yield result
         #     start_at += results.maxResults
 
-    def analyse(self):
-        # issue = jira.issue('XX-Number')
-        # print(issue.fields.project.key)
-        # print(issue.fields.issuetype.name)
-        # print(issue.fields.reporter.displayName)
-
-        # jql_str = self._filter_project() + 'AND sprint = "XXX" AND issuetype =  Sub-task ORDER BY Rank ASC'
-        jql_str = (
-            self._filter_project()
-            + 'AND sprint = "XXX" AND issuetype =  Story ORDER BY Rank ASC'
-        )
-        sousestimer = 0
-        sousestimerl = []
-        parfait = 0
-        surestimer = 0
-        autre = 0
-        for task in self.search(jql_str=jql_str, max_results=10000):
-            if (
-                task.fields.aggregatetimespent
-                and task.fields.aggregatetimeoriginalestimate
-                and task.fields.aggregatetimespent
-                > task.fields.aggregatetimeoriginalestimate
-            ):
-                print(task.self, self.link_browse(task.key))
-                print(
-                    task.fields.summary,
-                    task.fields.status,
-                    task.fields.assignee,
-                    to_hour(task.fields.aggregatetimespent),
-                    "/",
-                    to_hour(task.fields.aggregatetimeoriginalestimate),
-                )
-                sousestimer += 1
-                sousestimerl.append(
-                    to_hour(
-                        task.fields.aggregatetimespent
-                        - task.fields.aggregatetimeoriginalestimate
-                    )
-                )
-            elif (
-                task.fields.aggregatetimespent
-                and task.fields.aggregatetimeoriginalestimate
-                and task.fields.aggregatetimespent
-                == task.fields.aggregatetimeoriginalestimate
-            ):
-                parfait += 1
-            elif (
-                task.fields.aggregatetimespent
-                and task.fields.aggregatetimeoriginalestimate
-                and task.fields.aggregatetimespent
-                < task.fields.aggregatetimeoriginalestimate
-            ):
-                surestimer += 1
-            else:
-                # print(task.self, self.link_browse(task.key))
-                # print(task.fields.summary, task.fields.status, task.fields.assignee,
-                #       to_hour(task.fields.aggregatetimespent),
-                #       '/', to_hour(task.fields.aggregatetimeoriginalestimate))
-                autre += 1
-
-        print(
-            "Total",
-            math.fsum(sousestimerl),
-            "Median",
-            statistics.median(map(Decimal, sousestimerl)),
-            "Mean",
-            statistics.mean(map(Decimal, sousestimerl)),
-        )
-        print(
-            "sousestimer",
-            sousestimer,
-            "parfait",
-            parfait,
-            "surestimer",
-            surestimer,
-            "autre",
-            autre,
-        )
-
     def _filter_project(self):
         return "project = " + self._project + " "
-
-    def assign(self):
-        tasks = {}
-        for task in self.search(
-            self._filter_project() + 'AND status in ("To Do", "In Progress") '
-            # 'AND issuetype in (Bug, Sub-task) '
-            # 'AND assignee = currentUser() ' +
-            "AND resolution = Unresolved ORDER BY updated DESC",
-            fields="summary, status, assignee, aggregatetimeoriginalestimate, aggregatetimespent",
-        ):
-            tasks[task.key] = {
-                "summary": task.fields.summary,
-                "link": self.link_browse(task.key),
-                "status": task.fields.status.name,
-                "assignee": str(task.fields.assignee),
-                "restant": to_hour(
-                    task.fields.aggregatetimeoriginalestimate,
-                    task.fields.aggregatetimespent,
-                ),
-            }
-            print(task.self, self.link_browse(task.key))
-            print(
-                task.fields.summary,
-                task.fields.status,
-                task.fields.assignee,
-                to_hour(task.fields.aggregatetimespent),
-                "/",
-                to_hour(task.fields.aggregatetimeoriginalestimate),
-                to_hour(
-                    task.fields.aggregatetimeoriginalestimate,
-                    task.fields.aggregatetimespent,
-                ),
-            )
-        import pprint
-
-        pp = pprint.PrettyPrinter(indent=4)
-        pp.pprint(tasks)
-        # print(tasks)
 
     def remaining(self, cleaner: bool = False):
         fields: str = "summary, assignee, aggregatetimeestimate, status"
@@ -410,7 +95,7 @@ class JiraSM:
             "canceled": "and status = CANCELED",
             "doneAndNotAssignee": "and status = Done and assignee is EMPTY",
         }
-        now = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        now = datetime.now().strftime(Y_M_D + "_%H-%M-%S")
         path_file = (
             self._path_data
             + now.replace("-", "")
@@ -701,7 +386,7 @@ class JiraSM:
                         if changelog_item.field == "summary"
                         else tickets_changelogs[changelog_item.field]
                     )
-                    self._field_changelog(
+                    field_changelog(
                         asof,
                         changelog_date,
                         changelog_item.fromString,
@@ -749,30 +434,6 @@ class JiraSM:
                         )
                     )
                     # changelog_item.fromString, changelog_item.to, changelog_item.toString
-
-    def _field_changelog(
-        self,
-        asof,
-        changelog_date,
-        changelog_item_fromString,
-        created,
-        dates,
-        field,
-        ticket_key,
-        us_date,
-    ):
-        for date in dates:
-            if asof and asof > date:
-                break
-            else:
-                if created <= date < changelog_date and (
-                    changelog_date < us_date[date][ticket_key]["update"][field]
-                    or changelog_date
-                    <= us_date[date][ticket_key]["update"][field]
-                    == dates[-1]
-                ):
-                    us_date[date][ticket_key][field] = changelog_item_fromString
-                    us_date[date][ticket_key]["update"][field] = changelog_date
 
     def _prepare_epics(
         self, dates, epics_changelogs, epics_date: dict, epics_fields, now
@@ -1000,10 +661,7 @@ class JiraSM:
                 json.dump(workloads, f, indent=2)
         return workloads
 
-    def tree_jira(self, dates: list, filtre: str = "", suffix: str = ""):
-        # us_date = self.epic_ticket(
-        #     dates=dates, filtre=filtre, suffix=suffix, file=False
-        # )[0]
+    def tree_jira(self, filtre: str = ""):
         tickets_fields = ["parent", "created"]
         for ticket in self.search(
             jql_str=f"{self._filter_project()} {filtre} ORDER BY {self._order_by}",
@@ -1015,127 +673,3 @@ class JiraSM:
             created = ticket.fields.created[:10]
             ticket_super = attrgetter("parent")(ticket.fields)
             print(created, ticket_super)
-
-
-def test_field_changelog():
-    jira = JiraSM()
-    dates = [
-        "2025-03-22",
-        "2025-03-23",
-        "2025-03-24",
-        "2025-03-25",
-        "2025-03-26",
-        "2025-03-27",
-    ]
-    us_date = {}
-    for date in dates:
-        us_date[date] = {
-            "1": {"update": {"status": dates[-1]}, "status": "status_date"}
-        }
-    jira._field_changelog(
-        asof=None,
-        changelog_date="2025-03-25",
-        changelog_item_fromString="val_2025-03-25_bis",
-        created="2024-05-11",
-        dates=dates,
-        field="status",
-        ticket_key="1",
-        us_date=us_date,
-    )
-    assert us_date == {
-        "2025-03-22": {
-            "1": {"update": {"status": "2025-03-25"}, "status": "val_2025-03-25_bis"}
-        },
-        "2025-03-23": {
-            "1": {"update": {"status": "2025-03-25"}, "status": "val_2025-03-25_bis"}
-        },
-        "2025-03-24": {
-            "1": {"update": {"status": "2025-03-25"}, "status": "val_2025-03-25_bis"}
-        },
-        "2025-03-25": {
-            "1": {"update": {"status": "2025-03-27"}, "status": "status_date"}
-        },
-        "2025-03-26": {
-            "1": {"update": {"status": "2025-03-27"}, "status": "status_date"}
-        },
-        "2025-03-27": {
-            "1": {"update": {"status": "2025-03-27"}, "status": "status_date"}
-        },
-    }
-    second_change(dates, jira, us_date)
-    third_change(dates, jira, us_date)
-
-
-def second_change(dates, jira, us_date):
-    jira._field_changelog(
-        asof=None,
-        changelog_date="2025-03-25",
-        changelog_item_fromString="val_2025-03-25",
-        created="2024-05-11",
-        dates=dates,
-        field="status",
-        ticket_key="1",
-        us_date=us_date,
-    )
-    assert us_date == {
-        "2025-03-22": {
-            "1": {"update": {"status": "2025-03-25"}, "status": "val_2025-03-25_bis"}
-        },
-        "2025-03-23": {
-            "1": {"update": {"status": "2025-03-25"}, "status": "val_2025-03-25_bis"}
-        },
-        "2025-03-24": {
-            "1": {"update": {"status": "2025-03-25"}, "status": "val_2025-03-25_bis"}
-        },
-        "2025-03-25": {
-            "1": {"update": {"status": "2025-03-27"}, "status": "status_date"}
-        },
-        "2025-03-26": {
-            "1": {"update": {"status": "2025-03-27"}, "status": "status_date"}
-        },
-        "2025-03-27": {
-            "1": {"update": {"status": "2025-03-27"}, "status": "status_date"}
-        },
-    }
-
-
-def third_change(dates, jira, us_date):
-    jira._field_changelog(
-        asof=None,
-        changelog_date="2025-03-27",
-        changelog_item_fromString="val_2025-03-27",
-        created="2024-05-11",
-        dates=dates,
-        field="status",
-        ticket_key="1",
-        us_date=us_date,
-    )
-    assert us_date == {
-        "2025-03-22": {
-            "1": {
-                "update": {"status": "2025-03-25"},
-                "status": "val_2025-03-25_bis",
-            }
-        },
-        "2025-03-23": {
-            "1": {
-                "update": {"status": "2025-03-25"},
-                "status": "val_2025-03-25_bis",
-            }
-        },
-        "2025-03-24": {
-            "1": {
-                "update": {"status": "2025-03-25"},
-                "status": "val_2025-03-25_bis",
-            }
-        },
-        "2025-03-25": {
-            "1": {"update": {"status": "2025-03-27"}, "status": "val_2025-03-27"}
-        },
-        "2025-03-26": {
-            "1": {"update": {"status": "2025-03-27"}, "status": "val_2025-03-27"}
-        },
-        "2025-03-27": {
-            "1": {"update": {"status": "2025-03-27"}, "status": "status_date"}
-        },
-    }
