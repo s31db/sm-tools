@@ -9,7 +9,8 @@ class Burndown(Chart):
     _values: list[float]
     _dates: list[str]
     _start_is_max: bool = False
-    _figsize: tuple[float, float] = (8, 4)
+    _start_is_show: bool = False
+    _figsize: tuple[float, float] = (10, 4)
     _indicators: bool = True
 
     def title(self, title: str) -> Self:
@@ -29,14 +30,15 @@ class Burndown(Chart):
         return self
 
     def build(self) -> Self:
-        date_limits = (self._dates[0], self._dates[-1])
+        start = 0 if self._start_is_show else 1
+        date_limits = (self._dates[start], self._dates[-1])
         start_value = self._values[0] if self._start_is_max else max(self._values)
 
         fig, ax = plt.subplots(figsize=self._figsize)
         ax.set_title(self._title)
         fig.tight_layout()
-        ax.plot(self._dates[: len(self._values)], self._values)
-        plt.xticks(self._dates)
+        ax.plot(self._dates[start : len(self._values)], self._values[start:])
+        plt.xticks(self._dates[start:])
         ax.plot(date_limits, (start_value, 0), alpha=0.9, linewidth=0.9)
         if self._indicators:
             ax.fill_between(
@@ -84,12 +86,23 @@ def test_burdown() -> None:
     # assert Burndown(title4="Exple")._title4 == "Exple"
     b = (
         Burndown(title="Exple Test", start_is_max=False)
-        .dates(["26/11", "28/11", "29/11", "30/11"])
-        .values([15, 13])
+        .dates(["Start", "26/11", "28/11", "29/11", "30/11"])
+        .values([18, 15, 13])
         .build()
     )
     a = b.img64()[0]
     print(len(a))
     a = b.svg()[0]
     print(len(a))
+    b.show()
+
+
+def test_burdown_start() -> None:
+    # assert Burndown(title4="Exple")._title4 == "Exple"
+    b = (
+        Burndown(title="Exple Test", start_is_max=False, start_is_show=True)
+        .dates(["Start", "26/11", "28/11", "29/11", "30/11"])
+        .values([18, 15, 13])
+        .build()
+    )
     b.show()

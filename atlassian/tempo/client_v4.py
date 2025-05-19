@@ -45,6 +45,40 @@ class Tempo(RestAPIClient):
         parsed = datetime.strptime(value, r"%Y-%m-%d").date()
         return parsed
 
+    @staticmethod
+    def _resolve_time(value):
+        _v = Tempo.strip_hrs(value)
+        _h = 0
+        _m = 0
+        _s = 0
+        if _v.__contains__("pm"):
+            _v = _v.replace("pm", "")
+            _h = int(_v.split(":")[0])
+            if _h < 12:
+                _h = _h + 12
+            elif _h == 12:
+                _h = 0
+        else:
+            _h = int(_v.split(":")[0])
+        if _h > 99:
+            _h = int(_h / 100)
+        if _v.count(":") == 2:
+            _m = int(_v.split(":")[1])
+            _s = int(_v.split(":")[2])
+        elif _v.count(":") == 1:
+            _m = int(_v.split(":")[1])
+        value = "{:02d}:{:02d}:{:02d}".format(_h, _m, _s)
+        parsed = datetime.strptime(value, r"%H:%M:%S").time()
+        return parsed
+
+    @staticmethod
+    def strip_hrs(value):
+        _hrs = ["am", "uhr", "hrs", "hours", "hour"]
+        retval = value.lower().replace(" ", "").replace(".", ":")
+        for i in _hrs:
+            retval = retval.replace(i, "")
+        return retval.strip()
+
     def get(
         self,
         path,
@@ -614,6 +648,15 @@ class Tempo(RestAPIClient):
 
         return self.get(url, params=params)
 
+    def get_floating_holidays(self, holiday_scheme_id):
+        """
+        Retrieve floating holidays for an existing holiday scheme.
+        :param holiday_scheme_id:
+        """
+        url = f"/holiday-schemes/{holiday_scheme_id}/holidays/floating"
+
+        return self.get(url)
+
     def create_holiday_scheme(self, scheme_name, scheme_description=None):
         """
         Create holiday scheme
@@ -701,9 +744,6 @@ class Tempo(RestAPIClient):
             "limit": self._limit,
         }
 
-        if project_id:
-            params["projectId"] = project_id
-
         if updated_from:
             params["updatedFrom"] = self._resolve_date(updated_from).isoformat()
 
@@ -722,6 +762,8 @@ class Tempo(RestAPIClient):
             url += f"/user/{account_id}"
         elif issue_id:
             url += f"/issue/{issue_id}"
+        elif project_id:
+            url += f"/project/{project_id}"
 
         return self.get(url, params=params)
 
@@ -774,3 +816,224 @@ class Tempo(RestAPIClient):
     def get_allocation(self, **params):
         url = "/allocation"
         return self.get(url, params=params)
+
+    def create_worklog(
+        self,
+        account_id,
+        issue_id,
+        date_from,
+        time_spent_seconds,
+        billable_seconds=None,
+        description=None,
+        remaining_estimate_seconds=None,
+        start_time=None,
+        attributes=None,
+    ):
+        """
+        Creates a new Worklog using the provided input and returns the newly created Worklog.
+        :param account_id:
+        :param issue_id:
+        :param date_from:
+        :param time_spent_seconds:
+        :param billable_seconds:
+        :param description:
+        :param remaining_estimate_seconds:
+        :param start_time:
+        :param attributes:
+        """
+
+        url = "/worklogs"
+
+        data = {
+            "authorAccountId": str(account_id),
+            "issueId": int(issue_id),
+            "startDate": self._resolve_date(date_from).isoformat(),
+            "timeSpentSeconds": int(time_spent_seconds),
+            "attributes": attributes,
+        }
+
+        if billable_seconds:
+            data["billableSeconds"] = int(billable_seconds)
+        if description:
+            data["description"] = str(description)
+        if remaining_estimate_seconds:
+            data["remainingEstimateSeconds"] = int(remaining_estimate_seconds)
+        if start_time:
+            data["startTime"] = self._resolve_time(start_time).isoformat()
+
+        return self.post(url, data=data)
+
+    def update_worklog(
+        self,
+        worklog_id,
+        account_id,
+        date_from,
+        time_spent_seconds,
+        billable_seconds=None,
+        description=None,
+        remaining_estimate_seconds=None,
+        start_time=None,
+    ):
+        """
+        Updates an existing Worklog using the provided input and returns the updated Worklog.
+        :param worklog_id: The ID of the Worklog to be updated
+        :param account_id: The Author account ID of the user author
+        :param date_from: The start date of the Worklog
+        :param time_spent_seconds: The total amount of time spent in seconds
+        :param billable_seconds: The amount of seconds billable
+        :param description: The description of the Worklog
+        :param remaining_estimate_seconds: The total amount of estimated remaining seconds
+        :param start_time: The start time of the Worklog
+
+        See https://apidocs.tempo.io/#tag/Worklogs/operation/updateWorklog
+        """
+
+        url = f"/worklogs/{worklog_id}"
+
+        data = {
+            "authorAccountId": str(account_id),
+            "startDate": self._resolve_date(date_from).isoformat(),
+            "timeSpentSeconds": int(time_spent_seconds),
+        }
+
+        if billable_seconds:
+            data["billableSeconds"] = int(billable_seconds)
+        if description:
+            data["description"] = str(description)
+        if remaining_estimate_seconds:
+            data["remainingEstimateSeconds"] = int(remaining_estimate_seconds)
+        if start_time:
+            data["startTime"] = self._resolve_time(start_time).isoformat()
+
+        return self.put(url, data=data)
+
+    def delete_worklog(self, id):
+        """
+        Deletes a Worklog
+        :param id: The ID of the Worklog to be deleted
+
+        See https://apidocs.tempo.io/#tag/Worklogs/operation/deleteWorklog
+        """
+        url = f"/worklogs/{id}"
+        return self.delete(url)
+
+    # Customer
+
+    def create_customer(self, key=None, name=None, data=None):
+        """
+        Create customer
+        :param key:
+        :param name:
+        """
+
+        # either provide data, or build from other params
+        if not (data):
+            data = {"key": key, "name": name}
+        url = "/customers"
+
+        return self.post(url, data=data)
+
+    def update_customer(self, key=None, name=None, data=None):
+        """
+        Update customer
+        :param key:
+        :param name:
+        """
+
+        # either provide data, or build from other params
+        if not (data):
+            data = {"key": key, "name": name}
+
+        url = f"/customers/{key}"
+
+        return self.put(url, data=data)
+
+    # Account
+
+    def create_account(
+        self,
+        key=None,
+        lead_account_id=None,
+        name=None,
+        status=None,
+        category_key=None,
+        contact_account_id=None,
+        customer_key=None,
+        external_contact_name=None,
+        is_global=None,
+        data=None,
+    ):
+        """
+        Create account
+        :param key:
+        :param lead_account_id:
+        :param name:
+        :param status: # Enum: "CLOSED" "OPEN" "ARCHIVED"
+        :param category_key:
+        :param contact_account_id:
+        :param customer_key:
+        :param external_contact_name:
+        :param is_global:
+        """
+
+        # either provide data, or build from other params
+        if not (data):
+            data = {
+                "key": key,
+                "leadAccountId": lead_account_id,
+                "name": name,
+                "status": status,
+                "categoryKey": category_key,
+                "contactAccountId": contact_account_id,
+                "customerKey": customer_key,
+                "externalContactName": external_contact_name,
+                "global": is_global,
+            }
+
+        url = "/accounts"
+
+        return self.post(url, data=data)
+
+    def update_account(
+        self,
+        key=None,
+        lead_account_id=None,
+        name=None,
+        status=None,
+        category_key=None,
+        contact_account_id=None,
+        customer_key=None,
+        external_contact_name=None,
+        is_global=None,
+        data=None,
+    ):
+        """
+        Create account
+        :param key:
+        :param lead_account_id:
+        :param name:
+        :param status: # Enum: "CLOSED" "OPEN" "ARCHIVED"
+        :param category_key:
+        :param contact_account_id:
+        :param customer_key:
+        :param external_contact_name:
+        :param is_global:
+        """
+
+        # either provide data, or build from other params
+        if not (data):
+            data = {
+                "key": key,
+                "leadAccountId": lead_account_id,
+                "name": name,
+                "status": status,
+                "categoryKey": category_key,
+                "contactAccountId": contact_account_id,
+                "customerKey": customer_key,
+                "externalContactName": external_contact_name,
+                "global": is_global,
+            }
+
+        url = f"/accounts/{key}"
+
+        return self.put(url, data=data)

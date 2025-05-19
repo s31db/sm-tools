@@ -13,7 +13,7 @@ class Treemap(Chart):
     _title: str = "Treemap"
     _global_parent: str = "Treemap"
     _nodes: dict
-    fig: Figure
+    fig: Figure = None
     _url_server: str
     _colors: dict[str, str]
     _path_data: str
@@ -124,15 +124,17 @@ class Treemap(Chart):
         img_b64 = "data:image/png;base64," + encoding
         return img_b64, self
 
-    def png(self) -> Self:
-        self.fig.write_image(
-            file=self._path_data + self._title + ".png",
-            format="png",
-            scale=1,
-            width=1900,
-            height=1000,
-        )
-        return self
+    def png(self) -> tuple[str, Self]:
+        path = self._path_data + self._title + ".png"
+        if self.fig:
+            self.fig.write_image(
+                file=path,
+                format="png",
+                scale=1,
+                width=1900,
+                height=1000,
+            )
+        return path, self
 
     def html(self, full_html: bool = True) -> Self:
         with open(self._path_export + self._title + ".html", "w") as f:

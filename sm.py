@@ -12,6 +12,7 @@ import yaml
 from yaml.loader import SafeLoader
 from atlassian.jiraSM import JiraSM
 from atlassian.tempo_jira import Tempo
+import logging
 
 Y_M_D = "%Y-%m-%d"
 
@@ -25,10 +26,11 @@ def jira_cum(
     start_date: str = "2023-01-09",
     weeks: int = 15,
     now: bool = False,
+    db: bool = False,
 ):
     d = dates(start_date=start_date, weeks=weeks, now=now)
     data_conf, datas_sm = prepare_data(
-        project=project, suffix=suffix, date_file=date_file
+        project=project, suffix=suffix, date_file=date_file, db=db
     )
     i = 0
     filter_dates: list[str] = []
@@ -54,14 +56,27 @@ def jira_treemap(
     date_file: str | None = None,
     html: bool = False,
     show: bool = False,
+    asof: str | None = None,
+    fake: bool = False,
+    db: bool = False,
+    filtre_db: str | None = None,
 ):
-    data_conf, n, now = get_tree(project, suffix, date_file)
+    data_conf, n, now = get_tree(
+        project=project,
+        suffix=suffix,
+        date_file=date_file,
+        asof=asof,
+        db=db,
+        filtre_db=filtre_db,
+    )
     t = Treemap(
         project + " " + now,
         global_parent=project,
         nodes=n,
         **data_conf["projects"][project],
-    ).build()
+    )
+    if not fake:
+        t.build()
     if html:
         t.html()
     if show:
@@ -69,34 +84,77 @@ def jira_treemap(
     return t
 
 
-def get_tree(project: str, suffix: str = "", date_file: str | None = None) -> tuple[
+def anime(
+    title: str,
+    start_date: str | None = None,
+    weeks: int | None = None,
+    end_date: str | None = None,
+    now: bool = False,
+    **kwargs,
+):
+    filenames: list[str] = []
+    tomorrow = (datetime.today() + timedelta(days=1)).strftime("%Y%m%d")
+    asofs_all = [
+        *sprint_dates(start_date=start_date, weeks=weeks, end_date=end_date, now=now)
+    ]
+    asofs = [d for d in asofs_all if d <= tomorrow]
+    treemap = None
+    for asof_d in asofs:
+        if asof_d <= tomorrow:
+            treemap = jira_treemap(asof=asof_d, fake=False, **kwargs)
+            filename = treemap.png()[0]
+            filenames.append(filename)
+    if treemap:
+        treemap.title(title + "_animation")
+        treemap.sequence(filenames=filenames, duration=1000, loop=None)
+
+
+def get_tree(
+    project: str,
+    suffix: str = "",
+    date_file: str | None = None,
+    asof: str | None = None,
+    db: bool = False,
+    filtre_db: str | None = None,
+) -> tuple[
     dict[str, dict[str, dict[str, str | list[str] | int | float]]],
     dict[str, str | dict[str, dict[str, str | int | float]]],
     str,
 ]:
-    now = datefile(date_file)
+    now = datefile(asof if asof else date_file)
     data_conf, datas_sm = prepare_data(
-        project=project, suffix=suffix, date_file=date_file
+        project=project, suffix=suffix, date_file=date_file, db=db, filtre_db=filtre_db
     )
     n = tree.build_tree(datas_sm[now])[1]
     return data_conf, n, now
 
 
-def prepare_data(project: str, suffix: str, date_file: str | None = None) -> tuple[
+def prepare_data(
+    project: str,
+    suffix: str,
+    date_file: str | None = None,
+    db: bool = False,
+    filtre_db: str | None = None,
+) -> tuple[
     dict[str, dict[str, dict[str, dict[str, str | int | list[str] | dict[str, str]]]]],
     dict[str, dict[str, dict[str, None | float | str | int | dict[str, str]]]],
 ]:
     data_conf: dict[
         str, dict[str, dict[str, dict[str, str | int | list[str] | dict[str, str]]]]
     ] = jiraconf()
-    now = datefile(date_file)
-    path_file = f"{data_conf['projects'][project]['path_data']}{now.replace('-', '')}{project}_{suffix}.json"
-    print(f"file:///{path_file}", path_file)
-    with open(path_file, "r", encoding="utf-8") as fp:
-        # dict de date de ticket avec update ou fields
-        datas_sm: dict[str, dict[str, dict[str, None | str | int | dict[str, str]]]] = (
-            json.load(fp)
-        )
+    if db:
+        from atlassian.db_project import tickets
+
+        datas_sm = tickets(project=project, filtre_db=filtre_db)
+    else:
+        now = datefile(date_file)
+        path_file = f"{data_conf['projects'][project]['path_data']}{now.replace('-', '')}{project}_{suffix}.json"
+        logging.info(f"file:///{path_file} {path_file}")
+        with open(path_file, "r", encoding="utf-8") as fp:
+            # dict de date de ticket avec update ou fields
+            datas_sm: dict[
+                str, dict[str, dict[str, None | str | int | dict[str, str]]]
+            ] = json.load(fp)
     return data_conf, datas_sm
 
 
@@ -126,7 +184,7 @@ def extract_jira(
     )
 
 
-def jiraconf() -> dict[
+def jiraconf(path: str | None = None) -> dict[
     str,
     str | dict[str, dict[str, dict[str, str | int | list[str] | dict[str, str]]]],
 ]:
@@ -135,9 +193,12 @@ def jiraconf() -> dict[
         str | dict[str, dict[str, dict[str, str | int | list[str] | dict[str, str]]]],
     ]
     # common str ou projets de projet avec fields, list, dict
-    c = config()
+    c = config(path=path)
     with open(c.JIRA.conf, "r", encoding="utf-8") as f:
         data_conf = yaml.load(f, Loader=SafeLoader)
+    for v in data_conf["projects"].values():
+        if "token_auth" in v and v["token_auth"] == "$JIRA.token_auth":
+            v["token_auth"] = c.JIRA.token_auth
     return data_conf
 
 
@@ -807,6 +868,7 @@ def time_nb(project: str, suffix: str = "", date_file: str | None = None):
     tickets = []
     dates_end = {}
     dates_l = list(datas_sm.keys())
+    index_status = list(datas_conf["projects"][project]["colors"].keys())
     for da in dates_l:
         if da <= now:
             for ticket, value in datas_sm[da].items():
@@ -821,6 +883,10 @@ def time_nb(project: str, suffix: str = "", date_file: str | None = None):
                             if (
                                 datas_sm[st_da][ticket]["status"] is not None
                                 and datas_sm[st_da][ticket]["status"] != ""
+                                and index_status.index(
+                                    datas_sm[st_da][ticket]["status"]
+                                )
+                                >= index_status.index("In Progress")
                             ):
                                 if da not in dates_end:
                                     dates_end[da] = {}
@@ -836,7 +902,8 @@ def time_nb(project: str, suffix: str = "", date_file: str | None = None):
                                     ).days,
                                     "tps_t": dates_l.index(da) - dates_l.index(st_da),
                                     "estimate": estimate,
-                                    "date": da[2:7] + "-" + weeks_of_mounth(da),
+                                    # "date": da[2:7] + "-" + weeks_of_mounth(da),
+                                    "date": da[2:7],
                                 }
                                 break
                     tickets.append(ticket)
@@ -857,6 +924,7 @@ def time_nb(project: str, suffix: str = "", date_file: str | None = None):
 
     # s = Scatter(values=datas, filtre='tps_t <= tps_t.quantile(.95) & tps_t >= tps_t.quantile(.05)').by_date().build()
     s = Scatter(values=datas).by_date().build()
+    # s = Scatter(values=datas).by_estimate().build()
     # s.show()
 
     # Find repartition, time with estimate and cost
@@ -957,10 +1025,23 @@ def analysis_tree(project: str, date_file: str | None = None):
     n: dict[str, dict[str, str | int | float]]
     data_conf, n, now = get_tree(project=project, date_file=date_file)
     epics: dict[str, dict[str, str | dict[str, dict[str, str | int | float]]]] = {}
+    lvl1_sprint = (
+        "type" in data_conf["projects"][project]["super"]
+        and data_conf["projects"][project]["super"]["type"] == "Sprint"
+    )
+
     for story, v in n.items():
+        if v["lvl"] == 1 and lvl1_sprint:
+            continue
         if v["lvl"] == 0:
-            father = v["father"] if "father" in v else "No Epics"
-            father_name = v["father.name"] if "father" in v else "No Epics"
+            if lvl1_sprint:
+                father = n[v["father"]]["father"]
+                v["father"] = father
+                father_name = n[v["father"]]["name"]
+                v["father.name"] = father_name
+            else:
+                father = v["father"] if "father" in v else "No Epics"
+                father_name = v["father.name"] if "father" in v else "No Epics"
         else:
             father = story
             father_name = v["name"]
@@ -987,16 +1068,19 @@ def analysis_tree(project: str, date_file: str | None = None):
         )
 
 
-def re_tree(project: str, start_date: str, filtre: str = "", suffix: str = ""):
+def re_tree(project: str, filtre: str = ""):
     data_conf = jiraconf()
-    d = dates(start_date, 128)
     JiraSM(project=project, **data_conf["projects"][project]).conn().tree_jira(
-        list(d), filtre=filtre, suffix=suffix
+        filtre=filtre
     )
 
 
 def burndown(
-    project: str, suffix: str = "", date_file: str | None = None, previous: bool = False
+    project: str,
+    suffix: str = "",
+    date_file: str | None = None,
+    previous: bool = False,
+    points: bool = True,
 ):
     data_conf = jiraconf()
     conf = data_conf["projects"][project]
@@ -1028,9 +1112,19 @@ def burndown(
         if dd <= now:
             sum = 0
             for ticket in datas_sm[dd].values():
-                if "timeestimate" in ticket and ticket["timeestimate"] is not None:
+                if points:
+                    if (
+                        ticket["estimate"] is not None
+                        and ticket["status"]
+                        and ticket["status"] not in conf["status_done"]
+                    ):
+                        sum += float(ticket["estimate"])
+                elif "timeestimate" in ticket and ticket["timeestimate"] is not None:
                     sum += int(ticket["timeestimate"])
-            sums.append(sum // 3600)
+            if points:
+                sums.append(sum)
+            else:
+                sums.append(sum // 3600)
     b = (
         Burndown(title=f"{project} {sprint}", start_is_max=True, indicators=False)
         .dates(["Start"] + [dd[5:7] + "/" + dd[8:10] for dd in d[1:]])

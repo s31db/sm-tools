@@ -51,6 +51,8 @@ def build_tree(
                 estimate = ids[child_key]["estimate"]
                 if estimate is None:
                     estimate = 1
+                else:
+                    estimate = float(estimate)
                 ti = {}
                 for tim in [
                     "aggregatetimeoriginalestimate",

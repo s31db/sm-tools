@@ -1,5 +1,5 @@
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from urllib.parse import parse_qs, quote
+from urllib.parse import parse_qs, quote, unquote
 from HtmlClipboard import put_html
 from sm import (
     jiraconf,
@@ -10,12 +10,15 @@ from sm import (
     time_nb,
     burndown,
     worklog_plan_html,
+    anime,
 )
 from html import escape, unescape
 from version_one.sprint import read as read_sprint
 from version_one.tree_version_one import treemap_pi_portfolio
 from version_one.program_increment import analyse_pi, features_pi
 from datetime import datetime
+from reports.sprint_run import sprint_run
+from atlassian.db_project import update_project, sprints
 
 hostname = "localhost"
 serverPort = 8000
@@ -37,6 +40,10 @@ class MyServer(BaseHTTPRequestHandler):
                 else None
             )
             conf = jiraconf()["projects"][project]
+            db = (
+                "db" in jiraconf()["projects"][project]
+                and jiraconf()["projects"][project]["db"]
+            )
             if "type" in conf and conf["type"] == "version_one":
                 append_filters = [self.path.split("filter=")[1]]
                 if asof:
@@ -54,7 +61,15 @@ class MyServer(BaseHTTPRequestHandler):
                 )[0]
             else:
                 j = jira_treemap(
-                    project=self.path.split("project=")[1], date_file=asof, html=False
+                    project=self.path.split("project=")[1].split("&filtre_db=")[0],
+                    date_file=asof,
+                    html=False,
+                    db=db,
+                    filtre_db=unquote(
+                        self.path.split("filtre_db=")[1]
+                        if "filtre_db=" in self.path
+                        else ""
+                    ),
                 )
             self.w(j.chart_html())
         else:
@@ -94,7 +109,9 @@ class MyServer(BaseHTTPRequestHandler):
             "Cumulative": None,
             "Treemap": None,
             "TreemapEpic": None,
+            "Anime": None,
             "time_nb": None,
+            "sprint_run": None,
         }
         self.wl('<form method="post" action="/action">')
         self.w("<fieldset><legend>Project</legend>")
@@ -107,6 +124,11 @@ class MyServer(BaseHTTPRequestHandler):
             self.wl(
                 f"<input name='{key}_filter' id='{key}_filter' "
                 f"type='text' value='{escape(conf['filter'])}' size='200'/>"
+            )
+            self.w(f"<label for='{key}_filtre_db'>Filtre DB: </label>")
+            self.wl(
+                f"<input name='{key}_filtre_db' id='{key}_filtre_db' "
+                f"type='text' value='{escape(conf.get('filtre_db', ''))}' size='200'/>"
             )
             self.w(f"<label for='{key}_asof'>Asof : </label>")
             self.w(f"<input type='date' name='{key}_asof' id='{key}_asof'/>")
@@ -186,6 +208,15 @@ class MyServer(BaseHTTPRequestHandler):
         self.w("<html><head><title>S@m Tools</title>")
         self.fav_icon()
 
+        self.wl(
+            "<style>"
+            "th, td {padding: 15px; min-height: 25px;} "
+            "tr:nth-child(even) {background-color: #f2f2f2;} "
+            "th:nth-child(even) {background-color: #f2f2f2;} "
+            "td:nth-child(even) {background-color: #f2f2f2;} "
+            "table, td, th { border: 1px solid;} table {width: 100%; border-collapse: collapse;} td {text-align: center;}"
+            "</style>"
+        )
         self.w("<script>")
         self.w("document.addEventListener('DOMContentLoaded', () => {")
         self.w(
@@ -220,6 +251,7 @@ class MyServer(BaseHTTPRequestHandler):
             for b_project in req[b"projects"]:
                 actions = b_project + b"_actions"
                 b_filtre = b_project + b"_filter"
+                b_filtre_db = b_project + b"_filtre_db"
                 b_start = b_project + b"_start"
                 b_end = b_project + b"_end"
                 b_now = b_project + b"_now"
@@ -229,6 +261,7 @@ class MyServer(BaseHTTPRequestHandler):
 
                 project = b_project.decode("utf-8")
                 filtre = unescape(req[b_filtre][0].decode("utf-8"))
+                filtre_db = unescape(req[b_filtre_db][0].decode("utf-8"))
                 start = unescape(req[b_start][0].decode("utf-8"))
                 end = unescape(req[b_end][0].decode("utf-8"))
                 now = b_now in req
@@ -253,8 +286,17 @@ class MyServer(BaseHTTPRequestHandler):
                     link_treemap += f"&filter={quote(filtre)}"
                     self.w(f'<a href="{link_treemap}"')
                 else:
-                    self.w(f'<a href="/treemap?project={project}"')
+                    self.wl(
+                        f'<a href="{conf["url_server"]}secure/RapidBoard.jspa?projectKey={project}&rapidView={conf['board_id']}">{escape(conf['name'])} board</a>'
+                    )
+                    if filtre_db:
+                        self.w(
+                            f'<a href="/treemap?project={project}&filtre_db={quote(filtre_db)}"'
+                        )
+                    else:
+                        self.w(f'<a href="/treemap?project={project}"')
                 self.wl(f' download="{project}_treemap.html">Treemap file</a>')
+                db = conf["db"] if "db" in conf else False
                 if actions in req:
                     for action in req[actions]:
                         if action == b"Extract":
@@ -273,12 +315,15 @@ class MyServer(BaseHTTPRequestHandler):
                                     now=now,
                                 )
                             else:
-                                extract_jira(
-                                    project=project,
-                                    start_date=start,
-                                    filtre=filtre,
-                                    asof=asof,
-                                )
+                                if db:
+                                    update_project(project=project)
+                                else:
+                                    extract_jira(
+                                        project=project,
+                                        start_date=start,
+                                        filtre=filtre,
+                                        asof=asof,
+                                    )
                         elif action == b"Cumulative":
                             if "type" in conf and conf["type"] == "version_one":
                                 j = read_sprint(
@@ -302,6 +347,7 @@ class MyServer(BaseHTTPRequestHandler):
                                     step=step,
                                     chart_html=True,
                                     now=now,
+                                    db=db,
                                 )
                             self.wl(j, append=True)
                         elif action == b"Treemap":
@@ -317,12 +363,28 @@ class MyServer(BaseHTTPRequestHandler):
                                 )[0]
                             else:
                                 j = jira_treemap(
-                                    project=project, date_file=asof, html=False
+                                    project=project,
+                                    date_file=asof,
+                                    html=False,
+                                    db=db,
+                                    filtre_db=filtre_db,
                                 )
-                            self.wl(
-                                # j.chart_html().split("<body>")[-1].split("</body>")[0]
-                                j.chart_html(full_html=False)
-                            )
+                            self.wl(j.chart_html(full_html=False))
+                        elif action == b"Anime":
+                            if "type" in conf and conf["type"] == "version_one":
+                                # TODO anime version_one
+                                pass
+                            else:
+                                anime(
+                                    title="Treemap " + project,
+                                    start_date=start,
+                                    end_date=end,
+                                    weeks=weeks,
+                                    now=now,
+                                    project=project,
+                                    date_file=asof,
+                                    html=False,
+                                )
                         elif action == b"TreemapEpic":
                             for n, t, a in analysis_tree(project):
                                 self.w("<details><summary>" + n + str(a) + "</summary>")
@@ -347,8 +409,33 @@ class MyServer(BaseHTTPRequestHandler):
                             self.wl(j, append=True)
                         elif action == b"time_nb":
                             self.wl(time_nb(project))
+                        elif action == b"sprint_run":
+                            self.wl(
+                                f"Filter affected: <input type='txt' id='filter_sprint_run_{project}'/>"
+                                "<input type='submit' value='filter'"
+                                f'onclick=\'document.querySelectorAll(".ff").forEach((el) => el.style.display="none");'
+                                f'document.querySelectorAll("."+'
+                                f'document.getElementById("filter_sprint_run_{project}").value.replaceAll(".","_")).'
+                                f'forEach((el) => el.style.display="");return false\'/>'
+                                "<input type='submit' value='reset'"
+                                f"onclick='"
+                                f'document.querySelectorAll(".ff").forEach((el) => el.style.display="");return false\'/>'
+                            )
+                            for sr in sprint_run(
+                                project=project,
+                                date=None,
+                                # sprints=None, # sprint actif
+                                sprints=(
+                                    sprints(project=project) if db else None
+                                ),  # all sprint
+                                with_name=True,
+                                html=True,
+                                file=False,
+                                db=db,
+                            ):
+                                self.w(sr)
                         elif action == b"Burndown":
-                            self.wl(burndown(project, suffix="sprint"))
+                            self.wl(burndown(project, suffix="sprint", points=True))
                         elif action == b"Burndown_previous":
                             self.wl(
                                 burndown(
@@ -377,6 +464,7 @@ class MyServer(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
+    # logging.root.setLevel(logging.DEBUG)
     webServer = HTTPServer((hostname, serverPort), MyServer)
     print("Explore htt", "p://", hostname, ":", serverPort, sep="")
     try:

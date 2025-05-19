@@ -18,6 +18,8 @@ def calc(data):
 
 
 class Radar(Chart):
+    _figsize: tuple[float, float] = (10, 10)
+
     def build(self, df: pd.DataFrame):
         df = df.apply(calc)
 
@@ -32,7 +34,7 @@ class Radar(Chart):
         angles += angles[:1]
 
         # Initialise the spider plot
-        plt.figure(figsize=(10, 10))
+        plt.figure(figsize=self._figsize)
         ax: PolarAxes = plt.subplot(111, polar=True)  # type: ignore
 
         # If you want the first axis to be on top:
@@ -55,11 +57,22 @@ class Radar(Chart):
             loc = df.loc[i]
             values = loc.drop("group").drop("color").to_numpy().flatten().tolist()
             values += values[:1]
-            ax.plot(angles, values, linewidth=1, linestyle="solid", label=loc.group)
+            ax.plot(
+                angles, values, linewidth=1 + i / 5, linestyle="solid", label=loc.group
+            )
             ax.fill(angles, values, loc.color, alpha=0.1)
 
         # Add legend
         plt.legend(loc="upper right", bbox_to_anchor=(0.1, 0.1))
+        ax.set_title(
+            self._title,
+            loc="left",
+            fontweight="normal",
+            fontsize=13,
+            color="grey",
+            y=1.1,
+            x=-0.1,
+        )
         return self
 
 
