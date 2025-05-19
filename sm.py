@@ -143,7 +143,7 @@ def prepare_data(
         str, dict[str, dict[str, dict[str, str | int | list[str] | dict[str, str]]]]
     ] = jiraconf()
     if db:
-        from db.db_project import tickets
+        from atlassian.db_project import tickets
 
         datas_sm = tickets(project=project, filtre_db=filtre_db)
     else:
@@ -184,7 +184,7 @@ def extract_jira(
     )
 
 
-def jiraconf() -> dict[
+def jiraconf(path: str | None = None) -> dict[
     str,
     str | dict[str, dict[str, dict[str, str | int | list[str] | dict[str, str]]]],
 ]:
@@ -193,10 +193,10 @@ def jiraconf() -> dict[
         str | dict[str, dict[str, dict[str, str | int | list[str] | dict[str, str]]]],
     ]
     # common str ou projets de projet avec fields, list, dict
-    c = config()
+    c = config(path=path)
     with open(c.JIRA.conf, "r", encoding="utf-8") as f:
         data_conf = yaml.load(f, Loader=SafeLoader)
-    for k, v in data_conf["projects"].items():
+    for v in data_conf["projects"].values():
         if "token_auth" in v and v["token_auth"] == "$JIRA.token_auth":
             v["token_auth"] = c.JIRA.token_auth
     return data_conf

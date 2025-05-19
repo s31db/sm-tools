@@ -15,19 +15,19 @@ def presence(team, start_date, weeks, exclude_dates=None):
     # if exclude_dates:
     #     for exclude_date in exclude_dates:
     #         sd.pop(exclude_date)
-    sum = 0
+    nb = 0
     total = 0
     for member in data[team].values():
         if member["Role"] in ("TL", "Dev"):
-            sum += len(sd)
+            nb += len(sd)
             total += len(sd)
             for s in sd:
                 if s in member["Absence"]:
-                    sum -= member["Absence"][s]
+                    nb -= member["Absence"][s]
                 # else:
                 # sum += 1
                 # total += 1
-    print(sum, total, 100 * sum / total)
+    print(nb, total, 100 * nb / total)
 
 
 if __name__ == "__main__":

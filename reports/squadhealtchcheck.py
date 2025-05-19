@@ -281,6 +281,7 @@ def by_teams(file) -> Barcompare:
         .width_bar(0.25)
         .build()
     )
+    return barcompare
 
 
 def by_evolution(file) -> Line:
@@ -292,7 +293,7 @@ def by_evolution(file) -> Line:
         equipes[team] = {v: None for v in criterias}
         # equipes[team] = {v: 10 * i for i, v in enumerate(criterias)}
         # for criteria in criterias:
-        for i, criteria in enumerate(criterias):
+        for criteria in criterias:
             for title in titles:
                 if title in values:
                     if title not in evolutions:
@@ -348,10 +349,11 @@ def test_sqh():
 def test_sqh_team():
     radars = sqh_team(FILE_TEST, teams=("TeamA",))
     for team, radar in radars.items():
-        file_path = f"tmp/radar_health_check_{team}.png"
+        # file_path = f"tmp/radar_health_check_{team}.png"
         # radar.save(file_path)
         # send_to_clipboard_image(file_path)
         # print("ready", team, file_path)
+        assert len(radar.img64()[0]) == 145232
 
 
 def test_tab_sqh():
@@ -367,6 +369,7 @@ def test_by_periods():
     # file_path = f"radar_health_check_periods.png"
     # barcompare.save(file_path).show()
     # send_to_clipboard_image(file_path)
+    assert len(barcompare.img64()[0]) == 12588
 
 
 def test_by_criterias():
@@ -374,6 +377,7 @@ def test_by_criterias():
     # file_path = f"tmp/radar_health_check_criteres.png"
     # barcompare.save(file_path).show()
     # send_to_clipboard_image(file_path)
+    assert len(barcompare.img64()[0]) == 26308
 
 
 def test_by_teams():
@@ -381,6 +385,7 @@ def test_by_teams():
     # file_path = f"tmp/radar_health_check_teams.png"
     # barcompare.save(file_path).show()
     # send_to_clipboard_image(file_path)
+    assert len(barcompare.img64()[0]) == 17584
 
 
 def test_by_criterias_periods():
@@ -388,6 +393,7 @@ def test_by_criterias_periods():
     # file_path = f"tmp/radar_health_check_criteria_periods.png"
     # barcompare_cumul.save(file_path).show()
     # send_to_clipboard_image(file_path)
+    assert len(barcompare_cumul.img64()[0]) == 27240
 
 
 def test_by_evolution():
@@ -395,6 +401,7 @@ def test_by_evolution():
     # file_path = f"tmp/radar_health_check_evolution.png"
     # line.save(file_path).show()
     # send_to_clipboard_image(file_path)
+    assert len(line.img64()[0]) == 33992
 
 
 def test_last_values():
@@ -402,3 +409,4 @@ def test_last_values():
     # file_path = f"tmp/radar_health_check_last_values.png"
     # radar.save(file_path)
     # send_to_clipboard_image(file_path)
+    assert len(radar.img64()[0]) == 143232

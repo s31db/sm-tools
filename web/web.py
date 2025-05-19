@@ -1,4 +1,3 @@
-import logging
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import parse_qs, quote, unquote
 from HtmlClipboard import put_html
@@ -19,7 +18,7 @@ from version_one.tree_version_one import treemap_pi_portfolio
 from version_one.program_increment import analyse_pi, features_pi
 from datetime import datetime
 from reports.sprint_run import sprint_run
-from db.db_project import update_project, sprints
+from atlassian.db_project import update_project, sprints
 
 hostname = "localhost"
 serverPort = 8000

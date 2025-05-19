@@ -842,7 +842,7 @@ class Tempo(RestAPIClient):
         :param attributes:
         """
 
-        url = f"/worklogs"
+        url = "/worklogs"
 
         data = {
             "authorAccountId": str(account_id),
@@ -929,7 +929,7 @@ class Tempo(RestAPIClient):
         # either provide data, or build from other params
         if not (data):
             data = {"key": key, "name": name}
-        url = f"/customers"
+        url = "/customers"
 
         return self.post(url, data=data)
 
@@ -990,7 +990,7 @@ class Tempo(RestAPIClient):
                 "global": is_global,
             }
 
-        url = f"/accounts"
+        url = "/accounts"
 
         return self.post(url, data=data)
 

@@ -4,7 +4,7 @@ import json
 from datetime import datetime
 from operator import attrgetter
 from jira.client import ResultList
-from date_series import field_changelog
+from atlassian.date_series import field_changelog
 from atlassian.hierarchical import SUPER, SUPER_SUPER, add_super, change_super
 
 Y_M_D = "%Y-%m-%d"

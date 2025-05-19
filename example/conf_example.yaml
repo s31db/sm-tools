@@ -71,11 +71,15 @@ projects:
       sprints:
         field: customfield_10100
         field_changelog: sprint
+      type:
+        field: issuetype.name
+        field_changelog: issuetype
     # sprint
     super:
       field: customfield_10100
       field_changelog: Sprint
       default_name: Backlog
+      type: Sprint
       # Epic
       super:
         field: customfield_10101
@@ -84,6 +88,13 @@ projects:
         type: Epic
 #        other_projects :
 #          - NOP
+    status_started:
+      - In Progress
+      - Blocked
+      - In Test
+      - To Integrate
+      - Done
+      - Close
     status_done:
       - Done
       - Close

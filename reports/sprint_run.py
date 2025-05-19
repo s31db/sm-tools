@@ -46,7 +46,7 @@ def sprint_run(
     url_server = conf["url_server"]
     path_export = conf["path_export"]
     if db:
-        from db.db_project import tickets
+        from atlassian.db_project import tickets
 
         data = tickets(project=project)
     else:

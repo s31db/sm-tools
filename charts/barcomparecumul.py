@@ -1,4 +1,3 @@
-import matplotlib.pyplot as plt
 import numpy as np
 from charts.barcompare import Barcompare
 from typing import Self
